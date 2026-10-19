@@ -1,0 +1,35 @@
+{
+  "as_of": "2026-05-05",
+  "min_spread": 35000,
+  "holding_pct_per_month": 0.0075,
+  "holding_months": 6,
+  "selling_pct": 0.08,
+  "contingency": 0.15,
+  "age_cutoff_years": 20,
+  "reno_per_sqft": {
+    "under20": {
+      "low": 19.4,
+      "likely": 23.6,
+      "high": 41.7
+    },
+    "20plus": {
+      "low": 19.4,
+      "likely": 41.7,
+      "high": 55.6
+    }
+  },
+  "comp_floor": 50000,
+  "size_band": [
+    0.75,
+    1.25
+  ],
+  "min_comps": 3,
+  "window_months": [
+    12,
+    24
+  ],
+  "arv_percentile": 0.6,
+  "index_days": 90,
+  "index_min_sales": 30,
+  "index_min_sqft": 300
+}
