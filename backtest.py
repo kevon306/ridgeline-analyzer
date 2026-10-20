@@ -25,6 +25,7 @@ RULES = {
     "max_days": 548,
     "min_first_price": 50_000,
     "max_ratio": 2.0,
+    "min_first_date": "2018-01-01",     # first day the price index covers (protocol amendment 1)
     "tolerance": 0.15,
 }
 PAIR_COLUMNS = ["lrsnum", "first_date", "first_price", "second_date", "second_price", "days", "ratio", "year_built"]
@@ -69,6 +70,7 @@ def qualifying_pairs(sales: pd.DataFrame, year_built: pd.Series, rules: dict = R
         & p["year_built"].notna()
         & (p["year_built"] < p["first_date"].dt.year)
         & (p["ratio"] <= rules["max_ratio"])
+        & (p["first_date"] >= pd.Timestamp(rules["min_first_date"]))
     )
     p = p[keep].sort_values(["lrsnum", "first_date"]).reset_index(drop=True)
     return p.astype({"first_price": "int64", "second_price": "int64", "year_built": "int64"})[PAIR_COLUMNS]
@@ -101,9 +103,9 @@ def summarize(results: pd.DataFrame) -> dict:
     ok = results[results["status"] == "ok"]
     return {
         "pairs_evaluated": n,
-        "hit_rate": float(results["hit"].mean()) if n else None,            # primary: no estimate = miss
+        "headline_hit_rate_when_valued": float(ok["hit"].mean()) if len(ok) else None,
         "coverage": len(ok) / n if n else None,
-        "hit_rate_when_valued": float(ok["hit"].mean()) if len(ok) else None,
+        "all_in_hit_rate": float(results["hit"].mean()) if n else None,     # no estimate = miss
         "median_abs_pct_error": float(ok["pct_error"].abs().median()) if len(ok) else None,
         "median_pct_error": float(ok["pct_error"].median()) if len(ok) else None,
         "status_counts": results["status"].value_counts().to_dict(),

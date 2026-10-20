@@ -45,6 +45,11 @@ def test_first_price_floor():
     assert len(pairs_of([(1, "2024-01-01", 50_000), (1, "2024-06-01", 60_000)])) == 1
 
 
+def test_first_sale_before_the_price_index_starts_is_excluded():
+    assert len(pairs_of([(1, "2017-12-31", 200_000), (1, "2018-06-01", 250_000)])) == 0
+    assert len(pairs_of([(1, "2018-01-01", 200_000), (1, "2018-06-01", 250_000)])) == 1
+
+
 def test_house_must_be_built_before_the_first_sale():
     rows = [(1, "2024-01-01", 200_000), (1, "2024-06-01", 250_000)]
     assert len(pairs_of(rows, {1: 2023})) == 1
