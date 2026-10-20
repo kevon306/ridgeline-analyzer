@@ -20,6 +20,7 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 | `assumptions.json` | Every approved number (35,000 spread, 0.75%/month for 6 months, 8% selling, bands). Edited by hand. |
 | `run_scoring.py` | Command-line runner. |
 | `app.py` | The dashboard (Streamlit): upload a candidate CSV, see the ranking, top 5 and how each property was evaluated. |
+| `backtest.py` | Back-tests the ARV against repeat sales on a seeded held-out half. Method fixed in `BACKTEST_PROTOCOL.md`. |
 | `build_county_db.py` | Rebuilds `data/gwinnett.db` from the two county spreadsheets. Run only when the county republishes. |
 | `DEPLOY.md` | How to put the app on the web with no terminal. |
 | `data/gwinnett.db.gz` | The full single-family county database (246,806 parcels), compressed. |
@@ -37,5 +38,5 @@ a property can pass it and still have a negative ROI. Excluded: acquisition-side
 PROPOSED, awaiting approval: `invalid_input` (blank or non-numeric asking price).
 
 ## Known limits
-Renovation bands rest on one contractor and are not validated. The 65.9% back-test figure is exploratory, not the graded result.
+Renovation bands rest on one contractor and are not validated. Graded back-test (`BACKTEST_PROTOCOL.md`, 4,817 held-out repeat sales, 2018 onward): 69.2% of valued houses landed within 15% of their next sale; 77.8% could be valued; 53.9% all-in, counting unvalued houses as misses. The earlier 65.9% figure was exploratory and is superseded.
 Building size and year built come from the 2026 county snapshot.
