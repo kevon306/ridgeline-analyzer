@@ -18,6 +18,7 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 | `ridgeline_core/rules.py` | Renovation estimate (age tiers, 15% contingency on likely) and the charter ROI formula. |
 | `ridgeline_core/pipeline.py` | Candidate file in, one scored row per candidate out: address join, status and reason, price screen, ROI, ranking. |
 | `assumptions.json` | Every approved number (35,000 spread, 0.75%/month for 6 months, 8% selling, bands). Edited by hand. |
+| `report.py` | Printable top-5 summary and the back-test reliability line shown in the dashboard. |
 | `run_scoring.py` | Command-line runner. |
 | `app.py` | The dashboard (Streamlit): upload a candidate CSV, see the ranking, top 5 and how each property was evaluated. |
 | `backtest.py` | Back-tests the ARV against repeat sales on a seeded held-out half. Method fixed in `BACKTEST_PROTOCOL.md`. |
@@ -26,6 +27,12 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 | `data/gwinnett.db.gz` | The full single-family county database (246,806 parcels), compressed. |
 | `data/gwinnett_extract.db` | 999-parcel DEVELOPMENT extract used by the tests. |
 | `data/candidates_dev_fixture.csv` | DEVELOPMENT candidates: real parcel addresses, SYNTHETIC asking prices. Not real listings. |
+
+## Candidate file
+Columns `address`, `zip`, `asking_price` (any others are ignored). A listing-site download works as is: when a required
+column is missing under its own name, the app also accepts `ADDRESS` / `Street Address`, `ZIP OR POSTAL CODE` / `Zip Code` /
+`Postal Code`, and `PRICE` / `List Price` (any capitalisation), and says which columns it renamed. Rows are never dropped.
+The dashboard can also download a printable one-page summary of the top five.
 
 ## ROI (charter formula)
 `ROI % = (ARV - selling - asking - renovation - holding) / (asking + renovation) x 100`, with selling = 8% of ARV,

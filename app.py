@@ -1,6 +1,7 @@
 """Ridgeline Property Analytics: the dashboard.  Run locally with `streamlit run app.py`, or deploy on Streamlit Community Cloud.
 It reads the real output of the scoring engine; nothing on screen is hard-coded. Display only: no number is recalculated here
 except the ROI denominator (asking + renovation, the charter formula) and the contingency amount, both shown for explanation."""
+import datetime
 import gzip
 import json
 import shutil
@@ -11,8 +12,9 @@ import pandas as pd
 import streamlit as st
 
 from ridgeline_core.arv import load_county, load_params
-from ridgeline_core.pipeline import load_candidates, load_parcel_index, score_batch
-from ridgeline_core.rules import NOTICE
+from report import reliability_text, top5_html
+from ridgeline_core.pipeline import load_candidates, load_parcel_index, normalize_street, score_batch, zip5
+from ridgeline_core.rules import NOTICE, compute_roi
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title="Ridgeline Property Analytics", page_icon="🏠", layout="wide")
@@ -183,6 +185,8 @@ else:
             "3. pick any property to see how it was evaluated.")
     st.stop()
 
+if candidates.attrs.get("renamed"):
+    st.info("Read your columns as: " + " · ".join(f"“{src}” → {dst}" for src, dst in candidates.attrs["renamed"].items()) + ".")
 scored = score_batch(candidates, None, params, None, data=data, index=index)
 
 # ---------------------------------------------------------------- counts
@@ -207,6 +211,9 @@ else:
                  column_order=["Rank", "Property address", "Asking price", "Resale value", "Projected profit", "Projected ROI"])
     st.caption("Ranked from highest to lowest projected ROI. Only properties that passed the price screen and could be valued are ranked. "
                "Projected ROI is an estimate, not a guaranteed return.")
+    st.download_button("Download a printable top-5 summary", top5_html(scored, params, source_label, datetime.date.today().isoformat()),
+                       file_name="ridgeline_top5.html", mime="text/html",
+                       help="A one-page summary to open in your browser and print or save as PDF.")
 
 # ---------------------------------------------------------------- all results
 st.subheader("All results")
@@ -266,6 +273,14 @@ with st.container(border=True):
     if pd.notna(r["matched_address"]):
         entered += f" · Matched county record: {r['matched_address']} (parcel {int(r['lrsnum'])})"
     st.caption(f"{entered} · Status code: {r['status']} · Reason code: {r['reason'] or 'none'}")
+    if r["reason"] in ("unmatched_address", "ambiguous_address"):
+        street, z = normalize_street(r["address"]), zip5(r.get("zip"), r["address"])
+        tip = (f"Looked up as street “{street or '(blank)'}” in ZIP “{z or '(none found)'}”. The match must be exact. "
+               "Check for a unit or apartment number, a different spelling or street type, or a ZIP that differs from the county record.")
+        if r["reason"] == "ambiguous_address":
+            parcels = index.get(f"{street}|{z}", [])
+            tip += " Parcels with this address: " + "; ".join(f"parcel {p['lrsnum']} ({p['address']} {p['zip']})" for p in parcels) + "."
+        st.caption(tip)
 
     st.markdown("**Resale value (ARV) and comparable sales**")
     if pd.notna(r["arv"]):
@@ -273,6 +288,9 @@ with st.container(border=True):
         a.metric("Estimated resale value (ARV)", money(r["arv"]), help=HELP["arv"])
         b.metric("Resale value − asking price", money(r["spread"]),
                  help=f"The price screen needs at least ${params['min_spread']:,.0f}.")
+        rel = reliability_text()
+        if rel:
+            st.caption(rel)
         st.caption(f"Estimated from {int(r['comp_count'])} comparable sales in the same neighborhood within {int(r['comp_window_months'])} months, "
                    f"each adjusted to the as-of date ({r['as_of']}) with the county price index. "
                    f"The price screen needs at least ${params['min_spread']:,.0f}.")
@@ -317,6 +335,11 @@ with st.container(border=True):
             ("Projected ROI", "net profit ÷ total projected investment", roi_text(r["roi_pct"])),
         ], columns=["Step", "How", "Amount"])
         st.dataframe(steps, hide_index=True, width="stretch")
+        low = compute_roi(r["asking_price_used"], r["arv"], r["reno_low"], params)["roi_pct"]
+        high = compute_roi(r["asking_price_used"], r["arv"], r["reno_high"], params)["roi_pct"]
+        st.markdown(f"**If renovation costs differ:** projected ROI would be **{roi_text(low)}** at the low renovation figure "
+                    f"({money(r['reno_low'])}) and **{roi_text(high)}** at the high figure ({money(r['reno_high'])}). "
+                    "Same formula; only the renovation amount changes. The ranking uses the likely figure with contingency.")
         st.caption(f"Renovation: {NOTICE} Projected ROI is an estimate for screening, not a guaranteed or annualized return. "
                    "Not included: acquisition-side closing costs, and renovation beyond the contingency.")
     else:

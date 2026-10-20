@@ -126,3 +126,20 @@ def test_candidate_file_needs_required_columns(tmp_path):
     f = tmp_path / "bad.csv"; f.write_text("address,price\nA,1\n")
     with pytest.raises(ValueError, match="zip"):
         load_candidates(f)
+
+
+def test_listing_site_headers_are_accepted_and_reported(tmp_path):
+    f = tmp_path / "redfin.csv"
+    f.write_text("SALE TYPE,ADDRESS,CITY,ZIP OR POSTAL CODE,PRICE\n"
+                 '"In accordance with local MLS rules, some MLS listings are not included in the download",,,,\n'
+                 "MLS Listing,100 Main St,Lawrenceville,30078,285000\n")
+    df = load_candidates(f)
+    assert df.attrs["renamed"] == {"ADDRESS": "address", "ZIP OR POSTAL CODE": "zip", "PRICE": "asking_price"}
+    assert len(df) == 2                                   # the note row is kept (it will score as invalid_input), not dropped
+    assert df.loc[1, ["address", "zip", "asking_price"]].tolist() == ["100 Main St", "30078", "285000"]
+
+
+def test_exact_column_names_win_over_aliases(tmp_path):
+    f = tmp_path / "both.csv"; f.write_text("address,zip,asking_price,Price\nA,30078,1,2\n")
+    df = load_candidates(f)
+    assert df.attrs["renamed"] == {} and df.loc[0, "asking_price"] == "1" and df.loc[0, "Price"] == "2"
