@@ -87,3 +87,19 @@ was computed.
 2. Build `backtest.py` and its tests; run tests and a tiny sample on the 999-parcel development extract only.
 3. The graded run (`python3 backtest.py --db <gwinnett.db> --full`) happens once, separately, and is not part
    of this change.
+
+## Results of the graded run (2026-10-20)
+Run once, at commit `f348222`, with `python3 backtest.py --db <decompressed data/gwinnett.db.gz> --full`.
+Nothing was changed before or after the run. Files: `backtest_results/summary_full.json` (summary) and
+`backtest_results/pairs_full.csv` (one row per held-out pair).
+
+| Metric | Result |
+|---|---|
+| (a) Headline: within 15% among pairs the tool could value | **69.2%** (2,595 of 3,749) |
+| (b) Coverage: share of the held-out sample valued | **77.8%** (3,749 of 4,817) |
+| (c) All-in rate: within 15% over the whole held-out sample | **53.9%** (2,595 of 4,817) |
+| (d) Held-out sample size | 4,817 |
+| (d) Median absolute % error, valued pairs | 9.8% |
+| (d) Median signed % error, valued pairs | -3.2% (estimates tend to sit below the next sale) |
+
+All 1,068 unvalued pairs had fewer than 3 comps; none failed for lack of a price index.

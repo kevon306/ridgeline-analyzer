@@ -38,5 +38,5 @@ a property can pass it and still have a negative ROI. Excluded: acquisition-side
 PROPOSED, awaiting approval: `invalid_input` (blank or non-numeric asking price).
 
 ## Known limits
-Renovation bands rest on one contractor and are not validated. The 65.9% back-test figure is exploratory, not the graded result.
+Renovation bands rest on one contractor and are not validated. Graded back-test (`BACKTEST_PROTOCOL.md`, 4,817 held-out repeat sales, 2018 onward): 69.2% of valued houses landed within 15% of their next sale; 77.8% could be valued; 53.9% all-in, counting unvalued houses as misses. The earlier 65.9% figure was exploratory and is superseded.
 Building size and year built come from the 2026 county snapshot.

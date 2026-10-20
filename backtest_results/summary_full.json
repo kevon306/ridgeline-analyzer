@@ -1,0 +1,27 @@
+{
+  "seed": 20261020,
+  "db": "/tmp/claude-0/-home-user-ridgeline-analyzer/aa490985-c7b5-5ea0-ad64-c45ee1c20be4/scratchpad/gwinnett.db",
+  "data_cutoff": "2026-05-04",
+  "qualifying_pairs": 9633,
+  "exploration_half": 4816,
+  "held_out_half": 4817,
+  "sample": null,
+  "rules": {
+    "min_days": 30,
+    "max_days": 548,
+    "min_first_price": 50000,
+    "max_ratio": 2.0,
+    "min_first_date": "2018-01-01",
+    "tolerance": 0.15
+  },
+  "pairs_evaluated": 4817,
+  "headline_hit_rate_when_valued": 0.6921845825553481,
+  "coverage": 0.7782852397757941,
+  "all_in_hit_rate": 0.538717043803197,
+  "median_abs_pct_error": 0.09828461538461539,
+  "median_pct_error": -0.031608355091383815,
+  "status_counts": {
+    "ok": 3749,
+    "insufficient_comps": 1068
+  }
+}
