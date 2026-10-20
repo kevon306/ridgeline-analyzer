@@ -71,7 +71,8 @@ def load_engine():
     else:
         path, label = dev, "DEVELOPMENT EXTRACT (999 parcels), not the full county"
     index = load_parcel_index(path)
-    pins = {int(p["lrsnum"]): p["pin"] for hits in index.values() for p in hits}   # internal record id -> county parcel number
+    # internal record id -> county parcel number; .get so a missing pin shows "not on record" instead of stopping the app
+    pins = {int(p["lrsnum"]): p.get("pin") for hits in index.values() for p in hits if p.get("pin")}
     return load_county(path), index, pins, label
 
 
