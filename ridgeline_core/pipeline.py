@@ -28,6 +28,11 @@ APPROVED_REASONS = ("below_min_spread", "fewer_than_3_comps", "no_size_on_record
                     "no_neighborhood", "index_unavailable", "unmatched_address", "ambiguous_address")
 PROPOSED_REASONS = ("invalid_input",)
 REQUIRED_COLUMNS = ("address", "zip", "asking_price")
+HEADER_ALIASES = {  # accepted when the exact name is absent; matched case-insensitively, first alias wins
+    "address": ("address", "street address", "property address"),
+    "zip": ("zip", "zip code", "zipcode", "zip or postal code", "postal code"),
+    "asking_price": ("asking_price", "asking price", "price", "list price", "listing price"),
+}
 
 SUFFIXES = {"ROAD": "RD", "DRIVE": "DR", "STREET": "ST", "LANE": "LN", "COURT": "CT", "CIRCLE": "CIR",
             "TRAIL": "TRL", "BOULEVARD": "BLVD", "AVENUE": "AVE", "PLACE": "PL", "TERRACE": "TER",
@@ -82,12 +87,24 @@ def zip5(raw_zip, raw_address=None) -> str:
 
 
 def load_candidates(path) -> pd.DataFrame:
-    """Read candidates.csv. File-level problems raise; row-level problems become row statuses."""
+    """Read candidates.csv. File-level problems raise; row-level problems become row statuses.
+    A required column missing under its own name is taken from a common listing-site header (HEADER_ALIASES,
+    case-insensitive); what was renamed is kept in df.attrs["renamed"] so the app can say so."""
     df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    renamed = {}
+    for col, aliases in HEADER_ALIASES.items():
+        if col in df.columns:
+            continue
+        by_name = {str(c).strip().lower(): c for c in df.columns if c not in renamed}
+        hit = next((by_name[a] for a in aliases if a in by_name), None)
+        if hit is not None:
+            renamed[hit] = col
+    df = df.rename(columns=renamed)
     missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"candidates file is missing required column(s): {', '.join(missing)}")
     df.insert(0, "row_id", range(1, len(df) + 1))
+    df.attrs["renamed"] = renamed
     return df
 
 

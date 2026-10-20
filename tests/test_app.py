@@ -62,6 +62,8 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     assert labels["Estimated resale value (ARV)"] == "$1,173,988" and labels["Likely + contingency"] == "$118,520"
     assert labels["Total projected investment"] == "$822,520" and labels["Projected ROI"] == "▲ +27.5%"
     assert any(w.value == NOTICE for w in at.warning)
+    assert any("If renovation costs differ" in m.value and "▲ +32.9%" in m.value and "▲ +18.3%" in m.value for m in at.markdown)   # low / high band ROI
+    assert any("past repeat sales" in c.value for c in at.caption)                                      # back-test reliability
     assert any("Status code: ranked" in c.value for c in at.caption)
     at.session_state["pick"] = 19                           # unmatched address: no invented figures
     at.run()
@@ -69,3 +71,4 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     assert "Estimated resale value (ARV)" not in labels and "Projected ROI" not in labels
     assert any("unmatched_address" in c.value for c in at.caption)
     assert any("No county parcel matched" in i.value for i in at.info)
+    assert any("Looked up as street “1 NONEXISTENT RD” in ZIP" in c.value for c in at.caption)
