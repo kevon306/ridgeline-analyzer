@@ -248,7 +248,7 @@ else:
     st.dataframe(styler, hide_index=True, width="stretch", column_config=config, key="results_table",
                  height=min(len(view), 25) * 35 + 42,
                  on_select=pick_from_table, selection_mode="single-row")
-    st.caption(f"Money in US dollars; ROI = projected net profit ÷ (asking + renovation). ★ and shading mark the top five. Click a row to see how it was evaluated. Renovation figures: {NOTICE} "
+    st.caption(f"Money in US dollars; ROI = projected net profit ÷ (asking + renovation). ★ and shading mark the top five. Rows are already in rank order (clicking a column heading sorts it as text). Click a row to see how it was evaluated. Renovation figures: {NOTICE} "
                "Projected ROI is an estimate, not a guaranteed return.")
 st.download_button("Download all results (CSV)", scored.to_csv(index=False), file_name="scored.csv", mime="text/csv")
 
