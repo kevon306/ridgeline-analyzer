@@ -18,6 +18,12 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 | `ridgeline_core/rules.py` | Renovation estimate (age tiers, 15% contingency on likely) and the charter ROI formula. |
 | `ridgeline_core/pipeline.py` | Candidate file in, one scored row per candidate out: address join, status and reason, price screen, ROI, ranking. |
 | `assumptions.json` | Every approved number (35,000 spread, 0.75%/month for 6 months, 8% selling, bands). Edited by hand. |
+| `ridgeline_core/renovation.py` | Renovation scenarios (base, contingency, total), risk flags, renovation confidence, your optional scope, deal outcomes under each scenario. |
+| `ridgeline_core/reno_validation.py` | Scores renovation estimates against verified completed-project costs from the evidence database (reports insufficient data until enough exist). |
+| `ridgeline_core/evidence.py` | Renovation evidence database: property facts, inspections, estimates, quotes and final costs, price benchmarks, feedback, completeness, backup. |
+| `evidence_panel.py` | Dashboard panel for recording evidence and seeing completeness and estimate-vs-actual feedback. |
+| `ridgeline_core/reliability.py` | Recomputes the resale-value back-test figures (69% / 54%) from the per-house results and checks them. |
+| `RENOVATION_METHOD.md` | Renovation method, audit, data sources, limits and what data would improve it. |
 | `report.py` | Printable top-5 summary and the back-test reliability line shown in the dashboard. |
 | `run_scoring.py` | Command-line runner. |
 | `app.py` | The dashboard (Streamlit): upload a candidate CSV, see the ranking, top 5 and how each property was evaluated. |

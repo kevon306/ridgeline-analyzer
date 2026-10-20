@@ -114,7 +114,7 @@ def load_parcel_index(db_path) -> dict:
     """key 'STREET|ZIP' -> list of parcel dicts. More than one entry means ambiguous."""
     con = sqlite3.connect(db_path)
     try:
-        df = pd.read_sql("SELECT p.lrsnum, p.pin, p.address, p.zip, p.neighborhood, b.year_built, b.fin_sqft "
+        df = pd.read_sql("SELECT p.lrsnum, p.pin, p.address, p.zip, p.neighborhood, b.year_built, b.fin_sqft, b.cond_desc "
                          "FROM parcels p LEFT JOIN buildings b USING (lrsnum)", con)
     finally:
         con.close()

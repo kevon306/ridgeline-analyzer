@@ -1,5 +1,4 @@
 """Printable top-5 summary and the back-test reliability line (display helpers; nothing recalculated)."""
-import json
 import sys
 from pathlib import Path
 
@@ -13,12 +12,10 @@ from ridgeline_core.rules import NOTICE  # noqa: E402
 P = load_params(ROOT / "assumptions.json")
 
 
-def test_reliability_line_reads_the_graded_summary(tmp_path):
+def test_reliability_line_reports_both_verified_figures():
     text = reliability_text()
-    assert "4,817 past repeat sales" in text and "69% of estimates" in text and "78% of houses" in text and "3% below" in text
-    assert reliability_text(tmp_path / "missing.json") is None
-    (tmp_path / "bad.json").write_text(json.dumps({"pairs_evaluated": 1}))
-    assert reliability_text(tmp_path / "bad.json") is None
+    assert "4,817 past repeat sales" in text and "69% of the 3,749 houses" in text and "1,068 houses" in text and "54% did" in text
+    assert "not renovation costs" in text
 
 
 def test_top5_summary_lists_the_ranked_five_with_notice():
