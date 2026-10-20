@@ -65,6 +65,8 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     assert any("If renovation costs differ" in m.value and "▲ +32.9%" in m.value and "▲ +18.3%" in m.value for m in at.markdown)   # low / high band ROI
     assert any("past repeat sales" in c.value for c in at.caption)                                      # back-test reliability
     assert any("Status code: ranked" in c.value for c in at.caption)
+    assert any("Matched county record: 2665 CORK ST (parcel R3006A220)" in c.value for c in at.caption)   # the county pin,
+    assert not any("33409449" in c.value for c in at.caption)                                             # not the internal id
     at.session_state["pick"] = 19                           # unmatched address: no invented figures
     at.run()
     labels = {m.label: m.value for m in at.metric}

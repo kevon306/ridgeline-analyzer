@@ -2,7 +2,9 @@
 
 Order of operations for every row (the first rule that applies decides the status):
   1. input checks        invalid asking price                       -> unmatched / invalid_input *
-  2. address join        no match / more than one match             -> unmatched / unmatched_address, ambiguous_address
+  2. parcel, then address  optional `parcel` column matched exactly on the county pin (spaces and case ignored);
+                          blank or unmatched parcel falls back to the exact address + ZIP join
+                         no match / more than one match             -> unmatched / unmatched_address, ambiguous_address
   3. county record       no building record, no size                -> insufficient_comps / no_building_record, no_size_on_record
   4. ARV (arv.py)        no neighborhood, no index, < 3 comps       -> insufficient_comps / no_neighborhood, index_unavailable, fewer_than_3_comps
   5. price screen        ARV - asking < min_spread                  -> eliminated / below_min_spread
@@ -112,7 +114,7 @@ def load_parcel_index(db_path) -> dict:
     """key 'STREET|ZIP' -> list of parcel dicts. More than one entry means ambiguous."""
     con = sqlite3.connect(db_path)
     try:
-        df = pd.read_sql("SELECT p.lrsnum, p.address, p.zip, p.neighborhood, b.year_built, b.fin_sqft "
+        df = pd.read_sql("SELECT p.lrsnum, p.pin, p.address, p.zip, p.neighborhood, b.year_built, b.fin_sqft "
                          "FROM parcels p LEFT JOIN buildings b USING (lrsnum)", con)
     finally:
         con.close()
@@ -122,6 +124,18 @@ def load_parcel_index(db_path) -> dict:
     return index
 
 
+def normalize_pin(raw) -> str:
+    """County parcel number for exact comparison: spaces removed, upper case (R6226 166 == r6226166)."""
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return ""
+    return re.sub(r"\s+", "", str(raw)).upper()
+
+
+def pin_index(index: dict) -> dict:
+    """normalized pin -> parcel dict, built from the address index (pins are unique in the county file)."""
+    return {normalize_pin(p.get("pin")): p for hits in index.values() for p in hits if normalize_pin(p.get("pin"))}
+
+
 def _row(row_id, status, reason, params, **extra) -> dict:
     out = {c: None for c in RESULT_COLUMNS}
     out.update(row_id=row_id, status=status, reason=reason or "", rank=None, top5=False, **extra)
@@ -129,7 +143,7 @@ def _row(row_id, status, reason, params, **extra) -> dict:
     return out
 
 
-def _score_one(cand: dict, index: dict, data, params: dict, as_of: pd.Timestamp) -> dict:
+def _score_one(cand: dict, index: dict, data, params: dict, as_of: pd.Timestamp, pins: dict | None = None) -> dict:
     rid = cand["row_id"]
     base = {"as_of": as_of.date().isoformat()}
     # 1. input checks
@@ -139,14 +153,25 @@ def _score_one(cand: dict, index: dict, data, params: dict, as_of: pd.Timestamp)
             raise ValueError
     except ValueError:
         return _row(rid, "unmatched", "invalid_input", params, **base)
-    # 2. address join (exact on normalized street + zip)
-    key = f"{normalize_street(cand['address'])}|{zip5(cand.get('zip'), cand['address'])}"
-    hits = index.get(key, []) if key.split("|")[0] else []
-    if len(hits) == 0:
-        return _row(rid, "unmatched", "unmatched_address", params, asking_price_used=asking, **base)
-    if len(hits) > 1:
-        return _row(rid, "unmatched", "ambiguous_address", params, asking_price_used=asking, **base)
-    parcel = hits[0]
+    # 2. parcel number first (exact on the normalized pin), else the address join (exact on normalized street + zip)
+    street, z = normalize_street(cand["address"]), zip5(cand.get("zip"), cand["address"])
+    parcel, note = (pins or {}).get(normalize_pin(cand.get("parcel"))), ""
+    if parcel is not None:
+        if street != normalize_street(parcel["address"]) or (z and z != zip5(parcel["zip"])):
+            note = f" (Matched by parcel {parcel['pin']}; the county address is {parcel['address']}, ZIP {zip5(parcel['zip'])}.)"
+    else:
+        hits = index.get(f"{street}|{z}", []) if street else []
+        if len(hits) == 0:
+            return _row(rid, "unmatched", "unmatched_address", params, asking_price_used=asking, **base)
+        if len(hits) > 1:
+            return _row(rid, "unmatched", "ambiguous_address", params, asking_price_used=asking, **base)
+        parcel = hits[0]
+    out = _score_parcel(rid, parcel, asking, data, params, as_of, base)
+    out["explanation"] += note
+    return out
+
+
+def _score_parcel(rid, parcel: dict, asking: float, data, params: dict, as_of: pd.Timestamp, base: dict) -> dict:
     common = dict(lrsnum=int(parcel["lrsnum"]), matched_address=parcel["address"], asking_price_used=asking, **base)
     # 3. county record checks, before ARV so the documented precedence holds
     yb, sqft = parcel["year_built"], parcel["fin_sqft"]
@@ -200,7 +225,8 @@ def score_batch(candidates: pd.DataFrame, db_path, params: dict | None = None, a
         as_of = pd.Timestamp(params["as_of"])
     else:
         as_of = data.sales["sale_date"].max() + pd.Timedelta(days=1)
-    results = [_score_one(c, index, data, params, as_of) for c in candidates.to_dict("records")]
+    pins = pin_index(index) if "parcel" in candidates.columns else {}
+    results = [_score_one(c, index, data, params, as_of, pins) for c in candidates.to_dict("records")]
     res = pd.DataFrame(results, columns=RESULT_COLUMNS)
     out = candidates.merge(res, on="row_id", how="left")
     out = assign_ranks(out)
