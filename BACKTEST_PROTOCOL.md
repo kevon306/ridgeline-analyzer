@@ -30,6 +30,7 @@ the same house sold for next time?
    - the house was built before the first sale: `year_built` known and `year_built < year of first sale`
      (year built is a whole year, so a house built in the same year as the sale cannot be shown to predate it)
    - second price / first price <= 2.0
+   - first sale on or after **2018-01-01** (amendment 1, below)
 4. Sort qualifying pairs by (lrsnum, first sale date) so the order does not depend on how SQLite returns rows.
 
 ## Split
@@ -45,18 +46,41 @@ up to `as_of` (each built from sales strictly before its day), and never the sub
 also checks every returned comp is dated before `as_of` and stops if one is not. Tests prove that adding sales on
 or after `as_of`, including the second sale of the pair, does not change the estimate.
 
-## Metrics (fixed in advance)
-- **Primary: hit rate** = held-out pairs within 15% / **all** held-out pairs. A pair with no estimate
-  (any status other than `ok`) counts as a miss.
-- Secondary: coverage (share of held-out pairs with an estimate), hit rate among pairs that have an estimate,
-  median absolute percentage error, median signed error, counts by status.
+## Metrics (fixed in advance; as amended 2026-10-20)
+- **(a) Headline** = held-out pairs within 15% / held-out pairs the tool could value (status `ok`).
+- **(b) Coverage** = held-out pairs the tool could value / all held-out pairs.
+- **(c) All-in rate** = held-out pairs within 15% / **all** held-out pairs; a pair with no estimate is a miss.
+- **(d)** Held-out sample size; median absolute percentage error and median signed percentage error among valued
+  pairs. Counts by status are also reported.
 
 ## Known limits (stated before the run)
 - Building size, year built and neighborhood come from the 2026 county snapshot, not the date of the first sale.
   A house enlarged between its two sales is valued at its later size. This cannot be fixed with the data we have.
-- The index starts on 2018-01-01. Pairs whose first sale is earlier get `index_unavailable` and count as misses
-  under the primary metric. No date filter is added beyond the rules above.
+- The index starts on 2018-01-01. Pairs whose first sale is earlier are excluded (amendment 1), so the result
+  says nothing about valuations before 2018.
 - A rising second price is required by the rules, so the sample leans toward houses that gained value.
+
+## Amendment 1 (2026-10-20, before the graded run)
+Decided by the project owner after the tiny development sample and **before** any accuracy on the full database
+was computed.
+
+- **Rule:** a pair is eligible only if its first sale is on or after 2018-01-01. The filter is applied with the
+  other pair rules, before the seeded split, so the split is drawn from the eligible pairs only.
+- **Reason:** 2018-01-01 is the first day the stored price index covers. An earlier first sale can never be
+  valued (`index_unavailable`), so it measures the index's start date, not the estimate.
+- **Counts on `data/gwinnett.db.gz`** (pair building only, no estimates made):
+
+| | Pairs |
+|---|---|
+| Pass the original rules | 17,884 |
+| Excluded: first sale before 2018-01-01 | 8,251 |
+| **Eligible population** | **9,633** (first sales 2018-01-02 to 2026-03-17) |
+| Exploration half | 4,816 |
+| **Held-out half (graded)** | **4,817** |
+
+- The headline metric changes from the all-in rate to the hit rate among valued pairs; the all-in rate and
+  coverage are still reported (see Metrics).
+- Seed, ARV parameters, data cutoff and every other rule are unchanged.
 
 ## Procedure
 1. Commit this file.
