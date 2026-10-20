@@ -12,9 +12,13 @@ import pandas as pd
 import streamlit as st
 
 from ridgeline_core.arv import load_county, load_params
-from report import reliability_text, top5_html
+from report import top5_html
 from ridgeline_core.pipeline import load_candidates, load_parcel_index, normalize_street, score_batch, zip5
-from ridgeline_core.rules import NOTICE, compute_roi
+from ridgeline_core.reliability import arv_reliability
+from ridgeline_core.reno_validation import load_records, metrics as reno_metrics
+from ridgeline_core.renovation import (CATEGORIES, MODEL_VERSION, confidence, deal_outcomes, outcome_warning,
+                                       risk_flags, scope_budget)
+from ridgeline_core.rules import NOTICE
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title="Ridgeline Property Analytics", page_icon="🏠", layout="wide")
@@ -73,7 +77,9 @@ def load_engine():
     index = load_parcel_index(path)
     # internal record id -> county parcel number; .get so a missing pin shows "not on record" instead of stopping the app
     pins = {int(p["lrsnum"]): p.get("pin") for hits in index.values() for p in hits if p.get("pin")}
-    return load_county(path), index, pins, label
+    facts = {int(p["lrsnum"]): {"year_built": p.get("year_built"), "fin_sqft": p.get("fin_sqft"), "cond_desc": p.get("cond_desc")}
+             for hits in index.values() for p in hits}            # county record facts for risk flags (display only)
+    return load_county(path), index, pins, facts, label
 
 
 def money(x):
@@ -138,7 +144,12 @@ def results_table(view: pd.DataFrame):
 
 
 params = load_params(ROOT / "assumptions.json")
-data, index, pins, source_label = load_engine()
+data, index, pins, facts, source_label = load_engine()
+reliability = arv_reliability()
+try:
+    reno_validation = reno_metrics(load_records())
+except ValueError as e:                                     # a malformed ledger must not stop the app
+    reno_validation = {"n": 0, "status": f"renovation ledger could not be read: {e}"}
 contingency = f"{params['contingency']*100:.0f}%"
 
 # ---------------------------------------------------------------- header
@@ -293,9 +304,28 @@ with st.container(border=True):
         a.metric("Estimated resale value (ARV)", money(r["arv"]), help=HELP["arv"])
         b.metric("Resale value − asking price", money(r["spread"]),
                  help=f"The price screen needs at least ${params['min_spread']:,.0f}.")
-        rel = reliability_text()
-        if rel:
-            st.caption(rel)
+        if reliability:
+            with st.expander("How reliable is this resale value estimate?"):
+                rl = reliability
+                st.markdown(
+                    f"- **Within 15%, among houses the tool could value: {rl['hit_rate_valued']*100:.0f}%** "
+                    f"({rl['hits']:,} of {rl['valued']:,})\n"
+                    f"- **Within 15%, counting houses it could not value as misses: {rl['hit_rate_all']*100:.0f}%** "
+                    f"({rl['hits']:,} of {rl['tested']:,})\n"
+                    f"- Houses tested: {rl['tested']:,} · without a usable estimate: {rl['unvalued']:,} "
+                    f"({rl['unvalued']/rl['tested']*100:.0f}%, all for too few comparable sales)\n"
+                    f"- Typical miss: {rl['median_abs_error']*100:.1f}% (median); estimates ran {abs(rl['median_signed_error'])*100:.1f}% "
+                    f"{'below' if rl['median_signed_error'] < 0 else 'above'} the next sale on average")
+                st.caption(
+                    "**What this measures:** the resale value (ARV) only, not renovation costs or ROI. "
+                    "**Within 15%** means |estimate − actual next sale price| ÷ actual next sale price is 15% or less. "
+                    "The two percentages share the same hits; the first divides by houses that got an estimate, the second by every "
+                    "house tested. **Method:** Gwinnett County single-family houses that sold twice 30 to 548 days apart "
+                    f"(first sales {rl['first_sales'][0]} to {rl['first_sales'][1]}), each valued as of its first sale using only "
+                    "earlier data, then compared with its second sale; a seeded random half was held out and graded once "
+                    "(BACKTEST_PROTOCOL.md). Only pairs whose price rose were tested, so the figures may flatter flat or falling markets.")
+                if not rl["verified"]:
+                    st.warning(f"These figures were recomputed from the per-house results but do not match the recorded summary: {rl['discrepancy']}")
         st.caption(f"Estimated from {int(r['comp_count'])} comparable sales in the same neighborhood within {int(r['comp_window_months'])} months, "
                    f"each adjusted to the as-of date ({r['as_of']}) with the county price index. "
                    f"The price screen needs at least ${params['min_spread']:,.0f}.")
@@ -309,16 +339,67 @@ with st.container(border=True):
         st.caption("Not estimated: " + r["explanation"])
 
     st.markdown("**Renovation estimate**")
+    fact = facts.get(int(r["lrsnum"]), {}) if pd.notna(r["lrsnum"]) else {}
+    scope, closing, financing = None, 0.0, 0.0
     if pd.notna(r["reno_likely_with_contingency"]):
+        as_of_year = pd.Timestamp(r["as_of"]).year
+        # the exact figures the ranking used (see renovation.model_scenarios for how they are built from the bands)
+        rates = params["reno_per_sqft"][r["reno_tier"]]
+        model = {"tier": r["reno_tier"], "rates": rates, "fin_sqft": r["reno_likely_base"] / rates["likely"],
+                 "low": {"base": r["reno_low"], "contingency": 0.0, "total": r["reno_low"]},
+                 "expected": {"base": r["reno_likely_base"], "contingency": r["reno_likely_with_contingency"] - r["reno_likely_base"],
+                              "total": r["reno_likely_with_contingency"]},
+                 "high": {"base": r["reno_high"], "contingency": 0.0, "total": r["reno_high"]}}
         st.warning(NOTICE)
         a, b, c3, d, e = st.columns(5)
-        a.metric("Low", money(r["reno_low"]), help=HELP["reno"])
-        b.metric("Likely", money(r["reno_likely_base"]), help=HELP["reno"])
-        c3.metric(f"Contingency ({contingency})", money(r["reno_likely_with_contingency"] - r["reno_likely_base"]),
-                  help=f"{contingency} added to the likely figure only.")
-        d.metric("Likely + contingency", money(r["reno_likely_with_contingency"]), help="The renovation figure used in the ROI. " + NOTICE)
-        e.metric("High", money(r["reno_high"]), help=HELP["reno"])
-        st.caption(f"Per-square-foot band for a house {TIER_LABEL.get(r['reno_tier'], r['reno_tier'])}. {NOTICE}")
+        a.metric("Low", money(model["low"]["total"]), help=HELP["reno"])
+        b.metric("Expected base", money(model["expected"]["base"]), help=HELP["reno"])
+        c3.metric(f"Contingency ({contingency})", money(model["expected"]["contingency"]),
+                  help=f"{contingency} added to the expected (likely) figure only, under the approved rule.")
+        d.metric("Expected budget", money(model["expected"]["total"]), help="Base + contingency: the renovation figure used in the ranking. " + NOTICE)
+        e.metric("High", money(model["high"]["total"]), help=HELP["reno"])
+        st.caption(f"**What drives it:** {model['fin_sqft']:,.0f} sq ft [county record] × \\${rates['low']} / \\${rates['likely']} / \\${rates['high']} "
+                   f"per sq ft (low / expected / high) for a house {TIER_LABEL.get(model['tier'], model['tier'])} [model assumption: one contractor's ranges, "
+                   f"assumptions.json, model {MODEL_VERSION}]. One rate covers the whole house; there is no item-by-item scope, and "
+                   "low and high come from the contractor's bands, not from a measured spread. "
+                   f"County condition rating: {fact.get('cond_desc') or 'not on record'} [county record]. {NOTICE}")
+        with st.expander("Risk flags: what could make this estimate wrong"):
+            for fl in risk_flags(fact.get("year_built"), fact.get("cond_desc"), as_of_year, params):
+                st.markdown(f"- **{fl['item']}** ({fl['level']}): {fl['why']} *{fl['action']}*")
+            st.caption("Flags never add cost. Age and condition say where to look, not what to replace.")
+        with st.expander("Your scope and costs (optional): enter your inspection findings or contractor quotes"):
+            st.caption("Blank rows are ignored. Each category is counted once; contingency is applied once. "
+                       "These numbers are your entries: they change the scenarios below, not the ranking.")
+            entered = st.data_editor(
+                pd.DataFrame({"category": CATEGORIES, "low": [None] * len(CATEGORIES), "expected": [None] * len(CATEGORIES),
+                              "high": [None] * len(CATEGORIES), "source": [""] * len(CATEGORIES)}),
+                key=f"scope_{pick}", hide_index=True, width="stretch", num_rows="dynamic", height=(len(CATEGORIES) + 2) * 35 + 3,
+                column_config={"category": st.column_config.TextColumn("Category"),
+                               "low": st.column_config.NumberColumn("Low ($)", min_value=0, format="$%d"),
+                               "expected": st.column_config.NumberColumn("Expected ($)", min_value=0, format="$%d"),
+                               "high": st.column_config.NumberColumn("High ($)", min_value=0, format="$%d"),
+                               "source": st.column_config.TextColumn("Source (quote, inspection, invoice)")})
+            a, b, c3 = st.columns(3)
+            cont_pct = a.number_input("Contingency on your scope (%)", 0.0, 100.0, 10.0, 1.0, key=f"cont_{pick}",
+                                      help="Larger when condition is poor or the scope is incomplete.") / 100
+            closing = b.number_input("Closing and transaction costs ($)", 0.0, step=500.0, key=f"closing_{pick}",
+                                     help="Not in the approved model; 0 means not included.")
+            financing = c3.number_input("Financing costs ($)", 0.0, step=500.0, key=f"fin_{pick}",
+                                        help="Interest, points and fees for the hold period; 0 means not included.")
+            inspected = st.checkbox("My scope is based on a completed inspection", key=f"insp_{pick}")
+            try:
+                scope = scope_budget(entered.to_dict("records"), cont_pct)
+            except ValueError as e:
+                st.error(str(e))
+            if scope:
+                st.caption(f"Your scope: base {money(scope['expected']['base'])} + contingency {money(scope['expected']['contingency'])} "
+                           f"= {money(scope['expected']['total'])} expected (low {money(scope['low']['total'])}, "
+                           f"high {money(scope['high']['total'])}).".replace("$", "\\$"))   # unescaped $...$ renders as math
+                st.caption(f"Your scope covers only the {len(scope['rows'])} categor{'y' if len(scope['rows']) == 1 else 'ies'} you entered; "
+                           "any work you did not enter counts as nothing. Compare it with the model's figures above before relying on it.")
+        conf = confidence(True, scope, reno_validation, inspected=bool(st.session_state.get(f"insp_{pick}")) and scope is not None)
+        st.markdown(f"**Renovation confidence: {conf['label']}** (separate from the resale value and ROI)")
+        st.caption(" ".join(conf["reasons"]) + f" Validation status: {reno_validation['status']}.")
     else:
         st.caption("Not calculated: renovation is estimated only for properties that pass the price screen.")
 
@@ -340,12 +421,25 @@ with st.container(border=True):
             ("Projected ROI", "net profit ÷ total projected investment", roi_text(r["roi_pct"])),
         ], columns=["Step", "How", "Amount"])
         st.dataframe(steps, hide_index=True, width="stretch")
-        low = compute_roi(r["asking_price_used"], r["arv"], r["reno_low"], params)["roi_pct"]
-        high = compute_roi(r["asking_price_used"], r["arv"], r["reno_high"], params)["roi_pct"]
-        st.markdown(f"**If renovation costs differ:** projected ROI would be **{roi_text(low)}** at the low renovation figure "
-                    f"({money(r['reno_low'])}) and **{roi_text(high)}** at the high figure ({money(r['reno_high'])}). "
-                    "Same formula; only the renovation amount changes. The ranking uses the likely figure with contingency.")
+        st.markdown("**If renovation costs differ**")
+        sets = [("Model", model, 0.0, 0.0)]
+        if closing or financing:
+            sets.append(("Model + your closing/financing", model, closing, financing))
+        if scope:
+            sets.append(("Your scope", scope, closing, financing))
+        rows = []
+        for label, sc, cl, fi in sets:
+            outs = deal_outcomes(r["asking_price_used"], r["arv"], sc, params, cl, fi)
+            warn = outcome_warning(outs)
+            if warn:
+                st.warning(f"{label}: {warn}")
+            rows += [(label, o["scenario"].capitalize(), money(o["renovation"]), money(-(o["closing"] + o["financing"])) if (o["closing"] or o["financing"]) else "—",
+                      profit_text(o["net_profit"]), roi_text(o["roi_pct"])) for o in outs]
+        st.dataframe(pd.DataFrame(rows, columns=["Basis", "Renovation scenario", "Renovation budget", "Closing + financing",
+                                                 "Projected profit", "Projected ROI"]), hide_index=True, width="stretch")
+        st.caption("Same formula as above; only the renovation budget (and any closing or financing costs you enter) changes. "
+                   "The ranking uses the model's expected budget.")
         st.caption(f"Renovation: {NOTICE} Projected ROI is an estimate for screening, not a guaranteed or annualized return. "
-                   "Not included: acquisition-side closing costs, and renovation beyond the contingency.")
+                   "Not included unless you enter them above: acquisition-side closing costs and financing costs.")
     else:
         st.caption("Not calculated: only ranked properties get a projected profit and ROI.")

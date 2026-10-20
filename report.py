@@ -3,28 +3,25 @@ Both only read what already exists (the graded back-test summary and the scored 
 from __future__ import annotations
 
 import html
-import json
 from pathlib import Path
 
 import pandas as pd
 
+from ridgeline_core.reliability import arv_reliability
 from ridgeline_core.rules import NOTICE
 
 ROOT = Path(__file__).resolve().parent
-BACKTEST_SUMMARY = ROOT / "backtest_results" / "summary_full.json"
 
 
-def reliability_text(path: Path = BACKTEST_SUMMARY) -> str | None:
-    """One sentence from the graded back-test, or None if the summary file is not there."""
-    try:
-        s = json.loads(Path(path).read_text())
-        return (f"How reliable is this? In a back-test on {s['pairs_evaluated']:,} past repeat sales (2018 onward), "
-                f"{s['headline_hit_rate_when_valued']*100:.0f}% of estimates landed within {s['rules']['tolerance']*100:.0f}% "
-                f"of the next sale price, and {s['coverage']*100:.0f}% of houses could be valued. "
-                f"Estimates ran about {abs(s['median_pct_error'])*100:.0f}% {'below' if s['median_pct_error'] < 0 else 'above'} "
-                f"the next sale on average. Details: BACKTEST_PROTOCOL.md.")
-    except (OSError, KeyError, ValueError, TypeError):
+def reliability_text() -> str | None:
+    """One sentence from the graded back-test, recomputed from the per-pair file; None if it cannot be verified."""
+    rl = arv_reliability()
+    if not rl or not rl["verified"]:
         return None
+    return (f"Resale value (ARV) back-test on {rl['tested']:,} past repeat sales: {rl['hit_rate_valued']*100:.0f}% of the "
+            f"{rl['valued']:,} houses that could be valued landed within 15% of the next sale price; counting the "
+            f"{rl['unvalued']:,} houses that could not be valued as misses, {rl['hit_rate_all']*100:.0f}% did. "
+            "This measures the resale value only, not renovation costs. Details: BACKTEST_PROTOCOL.md.")
 
 
 def _money(x):

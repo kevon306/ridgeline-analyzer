@@ -59,11 +59,14 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     at.session_state["pick"] = 2                            # rank 1, ranked
     at.run()
     labels = {m.label: m.value for m in at.metric}
-    assert labels["Estimated resale value (ARV)"] == "$1,173,988" and labels["Likely + contingency"] == "$118,520"
+    assert labels["Estimated resale value (ARV)"] == "$1,173,988" and labels["Expected budget"] == "$118,520"
     assert labels["Total projected investment"] == "$822,520" and labels["Projected ROI"] == "▲ +27.5%"
     assert any(w.value == NOTICE for w in at.warning)
-    assert any("If renovation costs differ" in m.value and "▲ +32.9%" in m.value and "▲ +18.3%" in m.value for m in at.markdown)   # low / high band ROI
-    assert any("past repeat sales" in c.value for c in at.caption)                                      # back-test reliability
+    scen = next(d.value for d in at.dataframe if "Renovation scenario" in d.value.columns)              # low / expected / high
+    assert scen["Projected ROI"].tolist() == ["▲ +32.9%", "▲ +27.5%", "▲ +18.3%"] and set(scen["Basis"]) == {"Model"}
+    assert any("Within 15%, among houses the tool could value: 69%" in m.value and
+               "counting houses it could not value as misses: 54%" in m.value for m in at.markdown)    # verified reliability
+    assert any(m.value.startswith("**Renovation confidence: Low**") for m in at.markdown)              # no validation data yet
     assert any("Status code: ranked" in c.value for c in at.caption)
     assert any("Matched county record: 2665 CORK ST (parcel R3006A220)" in c.value for c in at.caption)   # the county pin,
     assert not any("33409449" in c.value for c in at.caption)                                             # not the internal id

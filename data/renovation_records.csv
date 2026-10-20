@@ -1,0 +1,1 @@
+record_id,pin,address,estimated_on,model_version,fin_sqft,year_built,cond_desc,pred_low,pred_expected,pred_high,pred_contingency,confidence,sources,inspection_findings,quoted_cost,quote_date,quote_source,verified_cost,verified_source,actual_cost,actual_completed_on,actual_evidence,discrepancy_reason
