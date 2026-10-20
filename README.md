@@ -32,6 +32,10 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 Columns `address`, `zip`, `asking_price` (any others are ignored). A listing-site download works as is: when a required
 column is missing under its own name, the app also accepts `ADDRESS` / `Street Address`, `ZIP OR POSTAL CODE` / `Zip Code` /
 `Postal Code`, and `PRICE` / `List Price` (any capitalisation), and says which columns it renamed. Rows are never dropped.
+Optional `parcel` column (agreed 20 Oct 2026): when filled in, the county parcel number (pin) is matched first, exactly,
+ignoring spaces and case (`R6226 166` = `r6226166`), and the address join is skipped. A blank parcel, or one that matches
+nothing, falls back to the exact address + ZIP join; if neither matches the row is `unmatched` / `unmatched_address`.
+When the parcel matches but the address differs, the explanation says so and gives the county address.
 The dashboard can also download a printable one-page summary of the top five.
 
 ## ROI (charter formula)
