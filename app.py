@@ -70,7 +70,9 @@ def load_engine():
         label = "Gwinnett County single-family records, 2026 county files"
     else:
         path, label = dev, "DEVELOPMENT EXTRACT (999 parcels), not the full county"
-    return load_county(path), load_parcel_index(path), label
+    index = load_parcel_index(path)
+    pins = {int(p["lrsnum"]): p["pin"] for hits in index.values() for p in hits}   # internal record id -> county parcel number
+    return load_county(path), index, pins, label
 
 
 def money(x):
@@ -135,7 +137,7 @@ def results_table(view: pd.DataFrame):
 
 
 params = load_params(ROOT / "assumptions.json")
-data, index, source_label = load_engine()
+data, index, pins, source_label = load_engine()
 contingency = f"{params['contingency']*100:.0f}%"
 
 # ---------------------------------------------------------------- header
@@ -270,8 +272,10 @@ with st.container(border=True):
     c3.metric("Reason", REASON_LABEL.get(r["reason"], "—") if r["reason"] else "—",
               help=f"Reason code: {r['reason']}" if r["reason"] else "Ranked properties have no reason code.")
     entered = f"Entered as: {r['address']}"
+    if str(r.get("parcel") or "").strip():
+        entered += f", parcel {str(r['parcel']).strip()}"
     if pd.notna(r["matched_address"]):
-        entered += f" · Matched county record: {r['matched_address']} (parcel {int(r['lrsnum'])})"
+        entered += f" · Matched county record: {r['matched_address']} (parcel {pins.get(int(r['lrsnum']), 'not on record')})"
     st.caption(f"{entered} · Status code: {r['status']} · Reason code: {r['reason'] or 'none'}")
     if r["reason"] in ("unmatched_address", "ambiguous_address"):
         street, z = normalize_street(r["address"]), zip5(r.get("zip"), r["address"])
