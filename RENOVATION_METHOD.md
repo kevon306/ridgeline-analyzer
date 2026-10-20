@@ -52,7 +52,7 @@ and showed the "Pre-walkthrough screening estimate, not a construction estimate"
   - **High:** a sourced scope based on an inspection AND validation on at least 30 completed projects.
 
   Today every property is **Low** unless you enter a sourced scope, because the validation count is 0.
-- **Validation ledger and metrics** (`data/renovation_records.csv`, `ridgeline_core/reno_validation.py`; run
+- **Validation metrics** (`ridgeline_core/reno_validation.py`, fed from the evidence database below; run
   `python -m ridgeline_core.reno_validation`):
   - Predicted, quoted, verified and actual costs are kept in separate columns.
   - A row is scored only if the actual cost has documentary evidence (invoice, closing statement, contractor final
@@ -83,7 +83,7 @@ locally.
 ## 4. What still needs better data
 
 1. **Completed-project costs.** Your own or a partner's past flips (invoices, draw records, closing statements) entered
-   in `data/renovation_records.csv`. This is the only way to measure accuracy, calibrate the bands and earn a rating
+   as verified final costs in the evidence database (see section 6). This is the only way to measure accuracy, calibrate the bands and earn a rating
    above Low. About 30 projects are needed before the rating can rise.
 2. **Item-level local prices.** Candidate providers (check cost and terms before relying on them):
    - **RSMeans (Gordian):** itemized construction costs with city cost indexes that include Atlanta; paid subscription.
@@ -105,3 +105,70 @@ locally.
 
 Any change to the bands or contingency should get a new version here, be tested on completed projects that were not
 used to choose it (`time_split`), and be reversible by restoring the previous `assumptions.json`.
+
+## 6. Renovation evidence database (added 2026-10-20)
+
+`ridgeline_core/evidence.py` creates `data/renovation_evidence.db` (SQLite) on first use. The app writes to it from the
+"Renovation evidence" part of each property's detail panel.
+
+| Table | Holds | Rules |
+|---|---|---|
+| `properties` | One row per county parcel number (pin) | Created only when something is saved |
+| `property_facts` | Living area, year built, bedrooms, bathrooms, property type | Every value has a source and date, and is `verified` or `unverified`; two different verified values are flagged as a conflict |
+| `inspections`, `component_findings` | Condition of 13 components (roof, HVAC, water heater, kitchen, bathrooms, flooring, plumbing, electrical, foundation, windows and doors, siding, interior walls, moisture) | Good / minor repair / major repair / replacement / **unknown** (the default, never guessed); a verified age requires its source |
+| `estimates`, `estimate_lines` | Predictions: model or your scope, low / expected / high totals, per-category lines with optional materials, labor and overhead | Predictions only; never mixed with quotes or actual costs |
+| `cost_records` | Quotes, invoices and final costs by category, with optional materials / labor / overhead | Parts must add up to the amount; `verified` needs an evidence reference; **only `final` + `verified` rows count as actual outcomes** |
+| `price_benchmarks` | Item-level unit prices (low / typical / high), what they include (labor, materials, installation, demolition, disposal, permits, overhead), geography, price date, source, reference, license note, geographic adjustment, evidence level | A row is refused unless every provenance field is filled; evidence level is one of published national / published regional / local quote / verified local. **Currently empty.** |
+
+**Feedback.**
+- The baseline is the newest estimate recorded **before** the first verified final cost; later estimates could use
+  hindsight and are ignored.
+- Per category and in total it reports the dollar error, absolute error, percentage error (only when the actual cost is
+  at least $1,000) and whether the actual fell inside the predicted range.
+- Category figures are base costs; the total includes the contingency.
+- Categories that cost money but were not estimated are listed as missed scope.
+
+**Recurring bias** (`bias_report`): the median error and the share underestimated by category, across properties, from
+verified final costs only. Categories with fewer than 10 comparisons show "insufficient data".
+
+**Nothing recalibrates automatically.** Any change to the bands needs a new model version (section 5) and a test on
+projects not used to choose it.
+
+**Repair-need probabilities** (`need_rates`): the share of inspected components needing major repair or replacement.
+It is reported only once a component has at least 30 inspected cases, and checked on later inspections (Brier score)
+with a cutoff date. Until then the app shows risk flags, not probabilities. Today every component is "insufficient data".
+
+**Completeness report.** For each property it lists every fact and component as one of: verified, county record,
+unverified, conflicting, missing, or unknown (not inspected). The open items are ranked by how much they can move a
+renovation budget: structure, moisture, roof, HVAC, kitchen and bathrooms first. That ranking is a suggested collection
+order, not a measured one.
+
+**Persistence.** On Streamlit Community Cloud the app's files are erased when it restarts, so the database does too.
+Use **Renovation evidence backup** in the sidebar: download the JSON after each session and upload it to restore. When
+running locally, the database file stays in `data/`. It is excluded from git; keep the JSON backup somewhere safe, or
+commit a copy deliberately.
+
+**Pricing sources: research status.** RSMeans (Gordian) and Craftsman's National Construction Estimator were
+checked on 2026-10-20. Neither site could be reached from the build environment (both hosts failed to resolve), so
+their data access, price and license terms are **not verified**. Before loading any of their figures:
+1. confirm the current price and format (book, software, online)
+2. confirm whether the license allows storing unit costs in your own database and showing them in an app
+3. record the edition and the license note on every benchmark row
+
+No benchmark has been loaded, and no price in the app comes from either source.
+
+## 7. How to start collecting completed-project data
+
+1. **Before each project:** open the property, enter your scope from the contractor's quote, and click
+   **Record your scope estimate now**. Do this before work starts; that recording is what later gets graded.
+2. **Save the inspection.** Set each component you actually saw, leaving the rest unknown, and add receipt- or
+   label-backed ages.
+3. **As bills arrive:** add them as `invoice` rows.
+4. **When the job is done:** add one `final` row per category, tick **verified**, and give the invoice number or
+   file name as evidence.
+5. **Download the evidence backup** after each session.
+6. **Past flips are worth entering too, with one exception:** their final costs are real data, but an estimate
+   recorded today for a finished job is hindsight and is not graded. Only estimates recorded before the final costs
+   count.
+7. **After about 10 graded projects,** feedback by category becomes meaningful; **after about 30**, the overall
+   metrics and the renovation confidence rating can move above Low.

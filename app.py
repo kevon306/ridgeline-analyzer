@@ -12,10 +12,12 @@ import pandas as pd
 import streamlit as st
 
 from ridgeline_core.arv import load_county, load_params
+import evidence_panel
 from report import top5_html
+from ridgeline_core import evidence as ev
 from ridgeline_core.pipeline import load_candidates, load_parcel_index, normalize_street, score_batch, zip5
 from ridgeline_core.reliability import arv_reliability
-from ridgeline_core.reno_validation import load_records, metrics as reno_metrics
+from ridgeline_core.reno_validation import metrics as reno_metrics
 from ridgeline_core.renovation import (CATEGORIES, MODEL_VERSION, confidence, deal_outcomes, outcome_warning,
                                        risk_flags, scope_budget)
 from ridgeline_core.rules import NOTICE
@@ -146,10 +148,12 @@ def results_table(view: pd.DataFrame):
 params = load_params(ROOT / "assumptions.json")
 data, index, pins, facts, source_label = load_engine()
 reliability = arv_reliability()
+evidence_db = evidence_panel.evidence_path()
+econ = ev.connect(evidence_db)
 try:
-    reno_validation = reno_metrics(load_records())
-except ValueError as e:                                     # a malformed ledger must not stop the app
-    reno_validation = {"n": 0, "status": f"renovation ledger could not be read: {e}"}
+    reno_validation = reno_metrics(ev.project_records(econ))
+except (ValueError, Exception) as e:                        # unreadable evidence must not stop the app
+    reno_validation = {"n": 0, "status": f"renovation evidence could not be read: {e}"}
 contingency = f"{params['contingency']*100:.0f}%"
 
 # ---------------------------------------------------------------- header
@@ -182,6 +186,9 @@ with st.sidebar:
                  "- Not included: acquisition-side closing costs, and renovation beyond the contingency.\n"
                  "- Building size and age come from the 2026 county records.\n"
                  "- A property can pass the price screen and still have a negative projected ROI.")
+
+with st.sidebar:
+    evidence_panel.sidebar_backup(econ, evidence_db)
 
 if use_example:
     candidates = load_candidates(ROOT / "data" / "candidates_dev_fixture.csv")
@@ -340,7 +347,10 @@ with st.container(border=True):
 
     st.markdown("**Renovation estimate**")
     fact = facts.get(int(r["lrsnum"]), {}) if pd.notna(r["lrsnum"]) else {}
-    scope, closing, financing = None, 0.0, 0.0
+    pin = pins.get(int(r["lrsnum"])) if pd.notna(r["lrsnum"]) else None
+    epid = ev.find_property(econ, pin) if pin else None
+    findings = ev.latest_findings(econ, epid) if epid else {}
+    scope, closing, financing, model, conf = None, 0.0, 0.0, None, None
     if pd.notna(r["reno_likely_with_contingency"]):
         as_of_year = pd.Timestamp(r["as_of"]).year
         # the exact figures the ranking used (see renovation.model_scenarios for how they are built from the bands)
@@ -364,7 +374,7 @@ with st.container(border=True):
                    "low and high come from the contractor's bands, not from a measured spread. "
                    f"County condition rating: {fact.get('cond_desc') or 'not on record'} [county record]. {NOTICE}")
         with st.expander("Risk flags: what could make this estimate wrong"):
-            for fl in risk_flags(fact.get("year_built"), fact.get("cond_desc"), as_of_year, params):
+            for fl in risk_flags(fact.get("year_built"), fact.get("cond_desc"), as_of_year, params, findings):
                 st.markdown(f"- **{fl['item']}** ({fl['level']}): {fl['why']} *{fl['action']}*")
             st.caption("Flags never add cost. Age and condition say where to look, not what to replace.")
         with st.expander("Your scope and costs (optional): enter your inspection findings or contractor quotes"):
@@ -397,7 +407,8 @@ with st.container(border=True):
                            f"high {money(scope['high']['total'])}).".replace("$", "\\$"))   # unescaped $...$ renders as math
                 st.caption(f"Your scope covers only the {len(scope['rows'])} categor{'y' if len(scope['rows']) == 1 else 'ies'} you entered; "
                            "any work you did not enter counts as nothing. Compare it with the model's figures above before relying on it.")
-        conf = confidence(True, scope, reno_validation, inspected=bool(st.session_state.get(f"insp_{pick}")) and scope is not None)
+        inspected = any(f["condition"] != "unknown" for f in findings.values()) or bool(st.session_state.get(f"insp_{pick}"))
+        conf = confidence(True, scope, reno_validation, inspected=inspected and scope is not None)
         st.markdown(f"**Renovation confidence: {conf['label']}** (separate from the resale value and ROI)")
         st.caption(" ".join(conf["reasons"]) + f" Validation status: {reno_validation['status']}.")
     else:
@@ -443,3 +454,6 @@ with st.container(border=True):
                    "Not included unless you enter them above: acquisition-side closing costs and financing costs.")
     else:
         st.caption("Not calculated: only ranked properties get a projected profit and ROI.")
+
+    st.markdown("**Renovation evidence**")
+    evidence_panel.render(econ, r, fact, pin, model, scope, conf["label"] if conf else "")

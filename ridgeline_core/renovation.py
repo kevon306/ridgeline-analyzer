@@ -24,6 +24,7 @@ CATEGORIES = [
     "Drywall, trim and interior doors", "Structural and foundation", "Water damage and mold", "Demolition, hauling and disposal",
     "Permits and inspections", "Landscaping and exterior cleanup", "Contractor overhead and general labor", "Other",
 ]
+OVERHEAD_CATEGORY = "Contractor overhead and general labor"
 
 
 def model_scenarios(fin_sqft: float, year_built: int, as_of_year: int, params: dict) -> dict:
@@ -40,16 +41,25 @@ def model_scenarios(fin_sqft: float, year_built: int, as_of_year: int, params: d
 
 def scope_budget(items: list[dict], contingency_pct: float) -> dict | None:
     """Sum a user-entered scope. Each category counts once; contingency is applied once, to the base of each scenario.
-    items: {"category", "low", "expected", "high", "source"}; rows without an expected figure are ignored.
-    Returns None when nothing usable was entered. Raises ValueError on inconsistent rows."""
+    items: {"category", "low", "expected", "high", "source", optional "materials", "labor", "overhead"}.
+    When parts are given without an expected figure, expected = their sum; when both are given they must agree.
+    Overhead may be entered inside rows or as its own category, not both (it would be counted twice).
+    Rows without an expected figure or parts are ignored. Returns None when nothing usable was entered.
+    Raises ValueError on inconsistent rows."""
     if contingency_pct is None or not (0 <= contingency_pct <= 1):
         raise ValueError("contingency must be between 0% and 100%")
     rows, seen = [], set()
     for it in items:
         exp = _num(it.get("expected"))
+        parts = {k: _num(it.get(k)) for k in ("materials", "labor", "overhead")}
+        given = [v for v in parts.values() if v is not None]
+        cat = str(it.get("category") or "").strip() or "Other"
+        if exp is None and given:
+            exp = sum(given)
+        elif exp is not None and given and abs(sum(given) - exp) > 1:
+            raise ValueError(f"'{cat}': materials + labor + overhead = {sum(given):,.0f}, but expected is {exp:,.0f}")
         if exp is None:
             continue
-        cat = str(it.get("category") or "").strip() or "Other"
         if cat in seen:
             raise ValueError(f"'{cat}' is entered twice; combine it into one row so it is not counted twice")
         seen.add(cat)
@@ -58,9 +68,11 @@ def scope_budget(items: list[dict], contingency_pct: float) -> dict | None:
         high = exp if high is None else high
         if min(low, exp, high) < 0 or not (low <= exp <= high):
             raise ValueError(f"'{cat}': figures must be 0 or more and low <= expected <= high")
-        rows.append({"category": cat, "low": low, "expected": exp, "high": high, "source": str(it.get("source") or "").strip()})
+        rows.append({"category": cat, "low": low, "expected": exp, "high": high, "source": str(it.get("source") or "").strip(), **parts})
     if not rows:
         return None
+    if OVERHEAD_CATEGORY in seen and any((r["overhead"] or 0) > 0 for r in rows if r["category"] != OVERHEAD_CATEGORY):
+        raise ValueError("overhead is entered both inside category rows and as its own row; keep one so it is not counted twice")
     out = {"rows": rows, "origin": "your entry", "contingency_pct": contingency_pct,
            "unsourced": [r["category"] for r in rows if not r["source"]]}
     for name in ("low", "expected", "high"):
@@ -97,16 +109,31 @@ def outcome_warning(outcomes: list[dict]) -> str | None:
     return None
 
 
-def risk_flags(year_built, cond_desc, as_of_year: int, params: dict) -> list[dict]:
-    """Things to check, from county facts. Flags never add cost; they say where the estimate could be wrong."""
+def risk_flags(year_built, cond_desc, as_of_year: int, params: dict, findings: dict | None = None) -> list[dict]:
+    """Things to check, from county facts and any recorded inspection. Flags never add cost; they say where the
+    estimate could be wrong. A recorded inspection finding replaces the age-based guess for that component;
+    components not inspected stay unknown."""
+    findings = findings or {}
+    inspected = {c: f for c, f in findings.items() if f.get("condition") not in (None, "", "unknown")}
     flags = []
+    for comp, f in inspected.items():
+        cond = f["condition"]
+        age = f" Verified age {f['verified_age_years']:g} years ({f['age_source']})." if f.get("verified_age_years") is not None else ""
+        level = {"good": "documented", "minor_repair": "check", "major_repair": "elevated", "replace": "elevated"}[cond]
+        action = ("No cost added for this component." if cond == "good"
+                  else "Price this work in your scope from a quote; the model's per-square-foot band does not itemize it.")
+        flags.append({"item": comp, "level": level,
+                      "why": f"Inspection {f.get('inspected_on', '')}: {cond.replace('_', ' ')}.{age}"
+                             + (f" Evidence: {f['evidence_ref']}." if f.get("evidence_ref") else ""), "action": action})
     age = None if year_built is None or (isinstance(year_built, float) and math.isnan(year_built)) else as_of_year - int(year_built)
     cutoff = params["age_cutoff_years"]
-    flags.append({"item": "Roof, HVAC, water heater", "level": "check" if age is None or age < cutoff else "elevated",
-                  "why": "No replacement dates are on record for any system."
+    systems = [c for c in ("Roof", "HVAC", "Water heater") if c not in inspected]
+    if systems:
+        flags.append({"item": ", ".join(systems), "level": "check" if age is None or age < cutoff else "elevated",
+                  "why": "No inspection or replacement date is on record."
                          + (f" The house is {age} years old (county record), at or past the {cutoff}-year age tier." if age is not None and age >= cutoff else ""),
                   "action": "Ask the seller for replacement dates and receipts; inspect before relying on the estimate."})
-    if age is not None and age >= cutoff:
+    if age is not None and age >= cutoff and not {"Electrical", "Plumbing"} <= set(inspected):
         flags.append({"item": "Electrical and plumbing", "level": "check",
                       "why": f"House built {int(year_built)} (county record); no documentation of updates on record.",
                       "action": "Have an inspector check the panel, wiring and supply/drain lines."})
@@ -116,7 +143,8 @@ def risk_flags(year_built, cond_desc, as_of_year: int, params: dict) -> list[dic
                       "why": f"County assessor rates the house '{cond}'. The per-square-foot bands assume typical condition, "
                              "so the scope may exceed even the high figure.",
                       "action": "Get an itemized contractor quote before making an offer."})
-    flags.append({"item": "Water damage, structure", "level": "unknown",
+    if not {"Moisture and mold", "Foundation and structure"} <= set(inspected):
+        flags.append({"item": "Water damage, structure", "level": "unknown",
                   "why": "No inspection findings are on record, so hidden damage cannot be ruled in or out.",
                   "action": "Budget for an inspection; water or structural problems are the most common large surprises."})
     return flags

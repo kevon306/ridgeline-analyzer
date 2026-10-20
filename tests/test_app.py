@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 
+import pytest
 from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +10,12 @@ sys.path.insert(0, str(ROOT))
 from ridgeline_core.rules import NOTICE  # noqa: E402
 
 STATUSES = ["ranked", "eliminated", "insufficient_comps", "unmatched"]
+
+
+@pytest.fixture(autouse=True)
+def evidence_db(tmp_path, monkeypatch):                  # the app's evidence database goes to a temp file, not data/
+    monkeypatch.setenv("RIDGELINE_EVIDENCE_DB", str(tmp_path / "evidence.db"))
+    return tmp_path / "evidence.db"
 
 
 def example_app():
@@ -77,3 +84,25 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     assert any("unmatched_address" in c.value for c in at.caption)
     assert any("No county parcel matched" in i.value for i in at.info)
     assert any("Looked up as street “1 NONEXISTENT RD” in ZIP" in c.value for c in at.caption)
+
+
+def test_evidence_panel_shows_saved_inspection_completeness_and_feedback(evidence_db):
+    from ridgeline_core import evidence as ev
+    from ridgeline_core.renovation import scope_budget
+    con = ev.connect(evidence_db)                         # TEST evidence for 2665 CORK ST (parcel R3006A220)
+    pid = ev.property_id(con, "R3006A220", "2665 CORK ST", "30517")
+    ev.add_inspection(con, pid, "2026-05-01", [{"component": "Roof", "condition": "replace", "evidence_ref": "TEST photo 1"},
+                                               {"component": "HVAC", "condition": "good", "verified_age_years": 2, "age_source": "TEST label"}])
+    ev.add_estimate(con, pid, "scope", scope_budget([{"category": "Roof", "low": 9_000, "expected": 11_000, "high": 14_000}], 0.1),
+                    "bands-v1+scope", created_on="2026-05-02")
+    ev.add_cost_record(con, pid, "Roof", "final", 12_500, "TEST roofer", "verified", "2026-07-01", evidence_ref="TEST inv 9")
+    con.close()
+    at = example_app()
+    at.session_state["pick"] = 2
+    at.run()
+    assert not at.exception
+    comp = next(d.value for d in at.dataframe if "impact" in d.value.columns).set_index("item")
+    assert comp.loc["Roof", "status"] == "inspected" and comp.loc["Kitchen", "status"] == "unknown"
+    assert any("Roof** (elevated)" in m.value and "replace" in m.value for m in at.markdown)            # inspection drives the flag
+    assert any("HVAC** (documented)" in m.value for m in at.markdown)
+    assert any("vs verified final cost" in m.value and "12,500" in m.value for m in at.markdown)        # feedback

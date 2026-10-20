@@ -1,6 +1,6 @@
-"""Validation of renovation estimates against completed projects (data/renovation_records.csv).
+"""Validation of renovation estimates against completed projects in the evidence database (ridgeline_core.evidence).
 
-The ledger keeps predicted, quoted, verified and actual costs in separate columns. Only rows whose actual cost is
+Project rows (the estimate made before work finished vs the verified final cost) keep predicted and actual costs apart. Only rows whose actual cost is
 backed by documentary evidence, completed after the estimate was made, are scored. With fewer than `min_n` usable
 rows the result is "insufficient data", never a made-up accuracy figure.
 """
@@ -12,7 +12,6 @@ from pathlib import Path
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-LEDGER = ROOT / "data" / "renovation_records.csv"
 COLUMNS = [
     "record_id", "pin", "address", "estimated_on", "model_version", "fin_sqft", "year_built", "cond_desc",
     "pred_low", "pred_expected", "pred_high", "pred_contingency", "confidence", "sources",
@@ -20,18 +19,21 @@ COLUMNS = [
     "verified_cost", "verified_source",
     "actual_cost", "actual_completed_on", "actual_evidence", "discrepancy_reason",
 ]
-EVIDENCE = {"invoice", "closing statement", "contractor final bill", "lender draw records", "receipts"}
+EVIDENCE = {"invoice", "closing statement", "contractor final bill", "lender draw records", "receipts", "verified final costs"}
 SMALL_COST = 1_000          # percentage errors are not computed for actual costs below this (they blow up near zero)
 
 
-def load_records(path: Path = LEDGER) -> pd.DataFrame:
-    if not Path(path).exists():
+def load_records(path: Path | None = None) -> pd.DataFrame:
+    """Project-level rows from the evidence database; empty when the database does not exist yet."""
+    from .evidence import DB_PATH, connect, project_records
+    path = Path(path or DB_PATH)
+    if not path.exists():
         return pd.DataFrame(columns=COLUMNS)
-    df = pd.read_csv(path, dtype=str, keep_default_na=False)
-    missing = [c for c in COLUMNS if c not in df.columns]
-    if missing:
-        raise ValueError(f"renovation ledger is missing column(s): {', '.join(missing)}")
-    return df
+    con = connect(path)
+    try:
+        return project_records(con)
+    finally:
+        con.close()
 
 
 def usable_records(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:

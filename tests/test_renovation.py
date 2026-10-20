@@ -104,9 +104,9 @@ def test_age_and_condition_raise_flags_but_never_cost():
     old = risk_flags(1975, "poor for age", 2026, P)
     new = risk_flags(2018, "normal for age", 2026, P)
     items = lambda fl: {f["item"]: f["level"] for f in fl}
-    assert items(old)["Roof, HVAC, water heater"] == "elevated" and "Electrical and plumbing" in items(old)
+    assert items(old)["Roof, HVAC, Water heater"] == "elevated" and "Electrical and plumbing" in items(old)
     assert items(old)["Overall condition"] == "elevated"
-    assert items(new)["Roof, HVAC, water heater"] == "check" and "Electrical and plumbing" not in items(new)
+    assert items(new)["Roof, HVAC, Water heater"] == "check" and "Electrical and plumbing" not in items(new)
     assert all("cost" not in f for f in old + new)                    # flags carry no dollar amount
     assert items(risk_flags(None, None, 2026, P))["Water damage, structure"] == "unknown"
 
