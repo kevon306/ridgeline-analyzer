@@ -34,7 +34,7 @@ REASON_LABEL = {
     "no_building_record": "No building record",
     "no_neighborhood": "No neighborhood code",
     "index_unavailable": "Price index unavailable",
-    "unmatched_address": "Address not found",
+    "unmatched_address": "Not found in the county's single-family records",
     "ambiguous_address": "Matches several parcels",
     "invalid_input": "No usable asking price",
 }
