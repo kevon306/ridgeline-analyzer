@@ -83,6 +83,8 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     assert "Estimated resale value (ARV)" not in labels and "Projected ROI" not in labels
     assert any("unmatched_address" in c.value for c in at.caption)
     assert any("No county parcel matched" in i.value for i in at.info)
+    assert labels["Reason"] == "Not found in the county's single-family records"            # display label only
+    assert any("Could not match · Not found in the county's single-family records." in i.value for i in at.info)
     assert any("Looked up as street “1 NONEXISTENT RD” in ZIP" in c.value for c in at.caption)
 
 
