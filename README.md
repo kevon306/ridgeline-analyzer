@@ -26,7 +26,10 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 | `RENOVATION_METHOD.md` | Renovation method, audit, data sources, limits and what data would improve it. |
 | `report.py` | Printable top-5 summary and the back-test reliability line shown in the dashboard. |
 | `run_scoring.py` | Command-line runner. |
-| `app.py` | The dashboard (Streamlit): upload a candidate CSV, see the ranking, top 5 and how each property was evaluated. |
+| `app.py` | The router (Streamlit `st.navigation`): `/` public home, `/login` log in or register, `/screener` the screening tool, `/dashboard` placeholder. |
+| `views/` | The pages. `views/screener.py` is the screening tool: upload a candidate CSV, see the ranking, top 5 and how each property was evaluated. |
+| `accounts.py` | Register, log in (bcrypt), log out; `require_login()` sends logged-out visitors to `/login`. |
+| `db.py` | MySQL persistence: engine from `DATABASE_URL` (`mysql://` is rewritten to `mysql+pymysql://`), and the `users`, `runs`, `run_rows` tables, created if missing. |
 | `backtest.py` | Back-tests the ARV against repeat sales on a seeded held-out half. Method fixed in `BACKTEST_PROTOCOL.md`. |
 | `build_county_db.py` | Rebuilds `data/gwinnett.db` from the two county spreadsheets. Run only when the county republishes. |
 | `DEPLOY.md` | How to put the app on the web with no terminal. |

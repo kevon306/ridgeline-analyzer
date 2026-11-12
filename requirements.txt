@@ -1,3 +1,7 @@
 streamlit>=1.50
 pandas
 numpy
+sqlalchemy
+pymysql
+cryptography
+bcrypt

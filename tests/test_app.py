@@ -20,6 +20,8 @@ def evidence_db(tmp_path, monkeypatch):                  # the app's evidence da
 
 def example_app():
     at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
+    at.session_state["user"] = {"id": 1, "email": "tester@example.com", "display_name": None}   # the screener needs a login
+    at.switch_page("views/screener.py")
     at.run()
     assert not at.exception and any("Upload your candidate list" in i.value for i in at.info)   # nothing uploaded yet
     at.checkbox[0].check().run()                                                                  # tick the development example
