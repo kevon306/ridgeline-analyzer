@@ -72,7 +72,7 @@ class CountyData:
         s["sale_date"] = pd.to_datetime(s["sale_date"])
         s = s[(s["amount"] > 0) & (s["fin_sqft"] > 0)].copy()
         s["ppsf"] = s["amount"] / s["fin_sqft"]
-        self.sales = s.sort_values("sale_date").reset_index(drop=True)
+        self.sales = s.sort_values("sale_date", kind="mergesort").reset_index(drop=True)   # stable: same-day ties keep file order
         self._by_nbhd = {k: g for k, g in self.sales.groupby("neighborhood")}
         if self.price_index is not None:
             self.price_index = self.price_index.copy()
@@ -140,7 +140,7 @@ def _comp_pool(data: CountyData, lrsnum, nbhd, sqft, as_of, months, p) -> pd.Dat
         & (g["lrsnum"] != lrsnum)
     ]
     # one most-recent sale per house (a flipped house is one comp, not two)
-    return pool.sort_values("sale_date").groupby("lrsnum", as_index=False).tail(1)
+    return pool.sort_values("sale_date", kind="mergesort").groupby("lrsnum", as_index=False).tail(1)
 
 
 def estimate_arv(lrsnum, as_of, params: dict, data: CountyData):
