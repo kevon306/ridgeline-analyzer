@@ -103,3 +103,33 @@ Nothing was changed before or after the run. Files: `backtest_results/summary_fu
 | (d) Median signed % error, valued pairs | -3.2% (estimates tend to sit below the next sale) |
 
 All 1,068 unvalued pairs had fewer than 3 comps; none failed for lack of a price index.
+
+## Note: re-run after the stable-sort fix (2026-11-12, not a new graded result)
+**Why it was re-run.** On 2026-11-12, `ridgeline_core/arv.py` changed the two sale-date sorts to a stable sort (PR #8). The
+county records hold same-house, same-day sales at two different prices (249 such pairs inside the 24-month comp
+window). The old sort did not keep such ties in a fixed order, so which of the two prices counted as the house's
+"most recent sale" was an accident of sort order. Now it is always the one later in the county file. The change was
+needed so that the low-memory loader scores exactly like the full load. It changes no scoring rule.
+
+**What was kept the same.** The project owner asked for the re-run. It used the same seed (20261020), pair rules,
+parameters, database (`data/gwinnett.db.gz`) and the same 4,817 held-out pairs in the same order, on the code at commit
+`769535d`.
+
+**The graded result above remains the official result.** This re-run does not replace it: replacing a graded figure
+after seeing a second run would defeat the purpose of fixing the method in advance. Files:
+`backtest_results/rerun_2026-11-12_stable_sort/` (`summary_full.json`, `pairs_full.csv`, and `changed_pairs.csv` for the
+pairs whose estimate changed).
+
+| Metric | Graded run (old sort) | Re-run (stable sort) |
+|---|---|---|
+| (a) Within 15%, among valued pairs | 69.2% (2,595 of 3,749) | 69.1% (2,591 of 3,749) |
+| (b) Coverage | 77.8% (3,749 of 4,817) | 77.8% (3,749 of 4,817) |
+| (c) All-in: within 15%, whole held-out sample | 53.9% (2,595 of 4,817) | 53.8% (2,591 of 4,817) |
+| (d) Median absolute % error, valued pairs | 9.83% | 9.83% |
+| (d) Median signed % error, valued pairs | -3.16% | -3.17% |
+
+**What changed.**
+- 28 of the 4,817 pairs got a different resale value; no pair changed status.
+- 4 pairs went from within 15% to outside it, and none the other way.
+- Most changes are small (median 3.2%), but a few are large (up to -72%).
+- Every one of the 28 has, among its comparable sales, a same-house, same-day sale recorded at two different prices.
