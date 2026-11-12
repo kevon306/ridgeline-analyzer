@@ -5,17 +5,19 @@ import datetime
 import gzip
 import json
 import shutil
+import sqlite3
 import tempfile
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
 
-from ridgeline_core.arv import load_county, load_params
+from ridgeline_core.arv import load_params
+from ridgeline_core.county_store import load_county_subset, lookup_parcels, prepare
 import evidence_panel
 from report import top5_html
 from ridgeline_core import evidence as ev
-from ridgeline_core.pipeline import load_candidates, load_parcel_index, normalize_street, score_batch, zip5
+from ridgeline_core.pipeline import load_candidates, normalize_street, score_batch, zip5
 from ridgeline_core.reliability import arv_reliability
 from ridgeline_core.reno_validation import metrics as reno_metrics
 from ridgeline_core.renovation import (CATEGORIES, MODEL_VERSION, confidence, deal_outcomes, outcome_warning,
@@ -62,26 +64,44 @@ h2, h3 {{color: {NAVY};}}
 </style>""", unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------------- data and engine (loaded once, then cached)
-@st.cache_resource(show_spinner="Loading Gwinnett County records (first load takes a moment)...")
-def load_engine():
+# ---------------------------------------------------------------- county data: kept in SQLite, loaded per list
+@st.cache_resource(show_spinner="Preparing Gwinnett County records (first start takes a moment)...")
+def county_db():
+    """A prepared working copy of the county database in the temp folder (the repository's files are never modified).
+    Only what an uploaded list needs is read from it; nothing county-wide is held in memory."""
     full, gz, dev = ROOT / "data" / "gwinnett.db", ROOT / "data" / "gwinnett.db.gz", ROOT / "data" / "gwinnett_extract.db"
     if full.exists():
-        path, label = full, "Gwinnett County single-family records, 2026 county files"
+        src, label = full, "Gwinnett County single-family records, 2026 county files"
     elif gz.exists():
-        path = Path(tempfile.gettempdir()) / "gwinnett.db"
-        if not path.exists():
-            with gzip.open(gz, "rb") as f_in, open(path, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-        label = "Gwinnett County single-family records, 2026 county files"
+        src, label = gz, "Gwinnett County single-family records, 2026 county files"
     else:
-        path, label = dev, "DEVELOPMENT EXTRACT (999 parcels), not the full county"
-    index = load_parcel_index(path)
-    # internal record id -> county parcel number; .get so a missing pin shows "not on record" instead of stopping the app
-    pins = {int(p["lrsnum"]): p.get("pin") for hits in index.values() for p in hits if p.get("pin")}
-    facts = {int(p["lrsnum"]): {"year_built": p.get("year_built"), "fin_sqft": p.get("fin_sqft"), "cond_desc": p.get("cond_desc")}
-             for hits in index.values() for p in hits}            # county record facts for risk flags (display only)
-    return load_county(path), index, pins, facts, label
+        src, label = dev, "DEVELOPMENT EXTRACT (999 parcels), not the full county"
+    info = src.stat()
+    work = Path(tempfile.gettempdir()) / f"ridgeline_{src.name.split('.')[0]}_{info.st_size}_{info.st_mtime_ns}.db"
+    if not work.exists():
+        part = work.with_suffix(".part")                    # a killed process must not leave a half-written database
+        if src.suffix == ".gz":
+            with gzip.open(src, "rb") as f_in, open(part, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        else:
+            shutil.copyfile(src, part)
+        prepare(part)
+        part.replace(work)
+    prepare(work)                                           # no-op once done
+    return work, label
+
+
+@st.cache_data(max_entries=4, show_spinner="Scoring your list...")
+def score_list(candidates: pd.DataFrame, db_path: Path, params: dict):
+    """Score one list from the parcels, neighborhood sales and price index it needs (same result as a full load)."""
+    con = sqlite3.connect(db_path)
+    try:
+        index = lookup_parcels(con, candidates)
+        data = load_county_subset(con, index)
+        scored = score_batch(candidates, None, params, None, data=data, index=index)
+    finally:
+        con.close()
+    return scored, index
 
 
 def money(x):
@@ -146,7 +166,7 @@ def results_table(view: pd.DataFrame):
 
 
 params = load_params(ROOT / "assumptions.json")
-data, index, pins, facts, source_label = load_engine()
+db_path, source_label = county_db()
 reliability = arv_reliability()
 evidence_db = evidence_panel.evidence_path()
 econ = ev.connect(evidence_db)
@@ -208,7 +228,11 @@ else:
 
 if candidates.attrs.get("renamed"):
     st.info("Read your columns as: " + " · ".join(f"“{src}” → {dst}" for src, dst in candidates.attrs["renamed"].items()) + ".")
-scored = score_batch(candidates, None, params, None, data=data, index=index)
+scored, index = score_list(candidates, db_path, params)
+# internal record id -> county parcel number, and county facts for risk flags (display only), for this list's parcels
+pins = {int(p["lrsnum"]): p.get("pin") for hits in index.values() for p in hits if p.get("pin")}
+facts = {int(p["lrsnum"]): {"year_built": p.get("year_built"), "fin_sqft": p.get("fin_sqft"), "cond_desc": p.get("cond_desc")}
+         for hits in index.values() for p in hits}
 
 # ---------------------------------------------------------------- counts
 counts = scored["status"].value_counts()
