@@ -9,8 +9,11 @@ Order of operations for every row (the first rule that applies decides the statu
   4. ARV (arv.py)        no neighborhood, no index, < 3 comps       -> insufficient_comps / no_neighborhood, index_unavailable, fewer_than_3_comps
   5. price screen        ARV - asking < min_spread                  -> eliminated / below_min_spread
   6. otherwise           renovation + ROI calculated                -> ranked
+  7. one house, one rank   a second ranked row for the same county parcel -> eliminated / duplicate_house *
 
-* invalid_input is PROPOSED, not yet approved: without it a blank price would have to be dropped or mislabelled.
+* invalid_input and duplicate_house are PROPOSED, not yet approved: without them a blank price would have to be dropped
+  or mislabelled, and a house listed twice would take two places in the ranking. A completely blank row is kept (as
+  invalid_input) and says so, so every row stays accounted for.
 Every input row is kept; nothing is dropped and nothing is invented.
 """
 from __future__ import annotations
@@ -28,7 +31,7 @@ from .rules import compute_roi, passes_price_screen, renovation_estimate
 APPROVED_STATUSES = ("ranked", "eliminated", "insufficient_comps", "unmatched")
 APPROVED_REASONS = ("below_min_spread", "fewer_than_3_comps", "no_size_on_record", "no_building_record",
                     "no_neighborhood", "index_unavailable", "unmatched_address", "ambiguous_address")
-PROPOSED_REASONS = ("invalid_input",)
+PROPOSED_REASONS = ("invalid_input", "duplicate_house")
 REQUIRED_COLUMNS = ("address", "zip", "asking_price")
 HEADER_ALIASES = {  # accepted when the exact name is absent; matched case-insensitively, first alias wins
     "address": ("address", "street address", "property address"),
@@ -51,6 +54,7 @@ EXPLAIN = {
     "unmatched_address": "Not found in the county's single-family records.",
     "ambiguous_address": "More than one county parcel matched this street address and ZIP, so none was chosen.",
     "invalid_input": "The row has no usable asking price, so it could not be evaluated. (Proposed reason code, not yet approved.)",
+    "duplicate_house": "The same house appears more than once in this file; it is ranked once, on the row with the higher projected ROI. (Proposed reason code, not yet approved.)",
 }
 ARV_CODE_MAP = {  # what estimate_arv returns -> (status, reason)
     "no_neighborhood": ("insufficient_comps", "no_neighborhood"),
@@ -152,7 +156,10 @@ def _score_one(cand: dict, index: dict, data, params: dict, as_of: pd.Timestamp,
         if not asking > 0:
             raise ValueError
     except ValueError:
-        return _row(rid, "unmatched", "invalid_input", params, **base)
+        out = _row(rid, "unmatched", "invalid_input", params, **base)
+        if not any(str(cand.get(k) or "").strip() for k in ("address", "zip", "asking_price")):
+            out["explanation"] = "Blank row in the file: no address, ZIP or asking price. Kept so every row is accounted for."
+        return out
     # 2. parcel number first (exact on the normalized pin), else the address join (exact on normalized street + zip)
     street, z = normalize_street(cand["address"]), zip5(cand.get("zip"), cand["address"])
     parcel, note = (pins or {}).get(normalize_pin(cand.get("parcel"))), ""
@@ -199,6 +206,21 @@ def _score_parcel(rid, parcel: dict, asking: float, data, params: dict, as_of: p
                 net_profit=fin["net_profit"], roi_pct=fin["roi_pct"], **common)
 
 
+def mark_duplicate_houses(df: pd.DataFrame) -> pd.DataFrame:
+    """One house, one rank: when several ranked rows match the same county parcel, keep the one that would rank
+    highest (ROI, then spread, then address, then file order) and set the others aside as eliminated / duplicate_house."""
+    df = df.copy()
+    r = df[(df["status"] == "ranked") & df["lrsnum"].notna()].copy()
+    r["_addr"] = r["matched_address"].fillna("").astype(str)
+    r = r.sort_values(["roi_pct", "spread", "_addr", "row_id"], ascending=[False, False, True, True], kind="mergesort")
+    keeper = r.groupby("lrsnum")["row_id"].transform("first")
+    dup = r.index[r["row_id"] != keeper]
+    for i in dup:
+        df.at[i, "status"], df.at[i, "reason"] = "eliminated", "duplicate_house"
+        df.at[i, "explanation"] = EXPLAIN["duplicate_house"] + f" Same house as row {int(keeper[i])}."
+    return df
+
+
 def assign_ranks(df: pd.DataFrame) -> pd.DataFrame:
     """Rank 'ranked' rows by ROI (high to low); ties go to the larger price spread, then to the address A-Z."""
     df = df.copy()
@@ -229,7 +251,7 @@ def score_batch(candidates: pd.DataFrame, db_path, params: dict | None = None, a
     results = [_score_one(c, index, data, params, as_of, pins) for c in candidates.to_dict("records")]
     res = pd.DataFrame(results, columns=RESULT_COLUMNS)
     out = candidates.merge(res, on="row_id", how="left")
-    out = assign_ranks(out)
+    out = assign_ranks(mark_duplicate_houses(out))
     order = {"ranked": 0, "eliminated": 1, "insufficient_comps": 2, "unmatched": 3}
     out["_o"] = out["status"].map(order)
     out["_r"] = out["rank"].astype("float").fillna(1e9)
