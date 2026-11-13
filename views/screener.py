@@ -96,6 +96,9 @@ else:
             "3. pick any property to see how it was evaluated.")
     st.stop()
 
+if candidates.empty:
+    st.warning("Your file has the right columns but no property rows. Add at least one address and asking price.")
+    st.stop()
 if candidates.attrs.get("renamed"):
     st.info("Read your columns as: " + " · ".join(f"“{src}” → {dst}" for src, dst in candidates.attrs["renamed"].items()) + ".")
 scored, index = score_list(candidates, db_path, params)

@@ -16,7 +16,8 @@ P = load_params(ROOT / "assumptions.json")
 
 def test_reliability_line_reports_both_verified_figures():
     text = reliability_text()
-    assert "4,817 past repeat sales" in text and "69% of the 3,749 houses" in text and "1,068 houses" in text and "54% did" in text
+    assert "4,817 past repeat sales" in text and "69.2% of the 3,749 houses" in text and "1,068 houses" in text
+    assert "53.9% did (coverage 77.8%)" in text
     assert "not renovation costs" in text
 
 
