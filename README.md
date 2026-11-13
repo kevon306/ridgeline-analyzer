@@ -58,7 +58,7 @@ a property can pass it and still have a negative ROI. Excluded: acquisition-side
 ## Statuses and reasons
 `ranked`, `eliminated`, `insufficient_comps`, `unmatched`; reasons `below_min_spread`, `fewer_than_3_comps`, `no_size_on_record`,
 `no_building_record`, `no_neighborhood`, `index_unavailable`, `unmatched_address`, `ambiguous_address`.
-PROPOSED, awaiting approval: `invalid_input` (blank or non-numeric asking price).
+PROPOSED, awaiting approval: `invalid_input` (blank or non-numeric asking price; a completely blank row says so) and `duplicate_house` (status `eliminated`: the same county parcel appears in more than one ranked row; it is ranked once, on the row with the higher projected ROI).
 
 ## Known limits
 Renovation bands rest on one contractor and are not validated. Graded back-test (`BACKTEST_PROTOCOL.md`, 4,817 held-out repeat sales, 2018 onward): 69.2% of valued houses landed within 15% of their next sale; 77.8% could be valued; 53.9% all-in, counting unvalued houses as misses. The earlier 65.9% figure was exploratory and is superseded.

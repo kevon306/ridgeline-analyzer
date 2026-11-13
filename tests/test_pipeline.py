@@ -115,11 +115,13 @@ def test_ranking_orders_by_roi_then_spread_then_address():
 
 def test_negative_roi_still_ranks_last_not_dropped(tmp_path):
     parcels = [(1, "100 MAIN ST", "30078", 1600, 1990, 100), (2, "2 COMP RD", "30078", 1700, 1990, 100),
-               (3, "3 COMP RD", "30078", 1800, 1990, 100), (4, "4 COMP RD", "30078", 1500, 1990, 100)]
+               (3, "3 COMP RD", "30078", 1800, 1990, 100), (4, "4 COMP RD", "30078", 1500, 1990, 100),
+               (5, "5 TEST ST", "30078", 1600, 1990, 100)]                 # a second house (one house, one rank)
     db = build_db(tmp_path / "n.db", parcels, three_comps())
-    out = score_batch(cands([("100 Main St", "30078", 285_000), ("100 Main St", "30078", 250_000)]), db, P, AS_OF)
+    out = score_batch(cands([("100 Main St", "30078", 285_000), ("5 Test St", "30078", 250_000)]), db, P, AS_OF)
     r = out[out["status"] == "ranked"]
     assert len(r) == 2 and r["roi_pct"].iloc[0] > r["roi_pct"].iloc[1] and r["rank"].tolist() == [1, 2]
+    assert r["roi_pct"].iloc[1] < 0 and r["matched_address"].iloc[1] == "100 MAIN ST"   # the negative one ranks last
 
 
 def test_candidate_file_needs_required_columns(tmp_path):
@@ -150,3 +152,36 @@ def test_address_not_in_the_county_records_has_the_agreed_message(tmp_path):
     r = score_batch(cands([("1 Nowhere Rd", "30078", 285_000)]), db, P, AS_OF).iloc[0]
     assert (r["status"], r["reason"]) == ("unmatched", "unmatched_address")            # codes unchanged
     assert r["explanation"] == "Not found in the county's single-family records."
+
+
+
+def test_same_house_twice_is_ranked_once_on_its_better_row(tmp_path):
+    db = build_db(tmp_path / "d.db", base_parcels() + [(5, "5 TEST ST", "30078", 1600, 1990, 100)], three_comps())
+    out = score_batch(cands([("100 Main St", "30078", 285_000), ("5 Test St", "30078", 270_000),
+                             ("100 MAIN STREET", "30078", 250_000)]), db, P, AS_OF).set_index("row_id")
+    assert out.loc[3, "status"] == "ranked" and out.loc[3, "rank"] == 1                    # cheaper ask = better ROI keeps it
+    assert (out.loc[1, "status"], out.loc[1, "reason"]) == ("eliminated", "duplicate_house")
+    assert pd.isna(out.loc[1, "rank"]) and not out.loc[1, "top5"] and "Same house as row 3." in out.loc[1, "explanation"]
+    assert out.loc[2, "rank"] == 2 and len(out) == 3                                        # other houses unaffected
+    assert out.loc[1, "roi_pct"] == out.loc[1, "roi_pct"]                                   # its figures stay visible
+
+
+def test_same_house_twice_at_the_same_price_keeps_the_first_row(tmp_path):
+    db = build_db(tmp_path / "s.db", base_parcels(), three_comps())
+    out = score_batch(cands([("100 Main St", "30078", 250_000), ("100 Main St", "30078", 250_000)]), db, P, AS_OF).set_index("row_id")
+    assert out.loc[1, "rank"] == 1 and out.loc[2, "reason"] == "duplicate_house" and "row 1" in out.loc[2, "explanation"]
+
+
+def test_an_unmatched_or_eliminated_duplicate_is_left_alone(tmp_path):
+    db = build_db(tmp_path / "u.db", base_parcels(), three_comps())
+    out = score_batch(cands([("1 Nowhere Rd", "30078", 250_000), ("1 Nowhere Rd", "30078", 250_000),
+                             ("100 Main St", "30078", 400_000), ("100 Main St", "30078", 250_000)]), db, P, AS_OF).set_index("row_id")
+    assert list(out.loc[[1, 2], "reason"]) == ["unmatched_address", "unmatched_address"]
+    assert out.loc[3, "reason"] == "below_min_spread" and out.loc[4, "rank"] == 1           # only ranked rows compete
+
+
+def test_a_completely_blank_row_is_kept_and_says_so(tmp_path):
+    db = build_db(tmp_path / "b.db", base_parcels(), three_comps())
+    out = score_batch(cands([("100 Main St", "30078", 250_000), ("", "", "")]), db, P, AS_OF).set_index("row_id")
+    assert len(out) == 2 and (out.loc[2, "status"], out.loc[2, "reason"]) == ("unmatched", "invalid_input")
+    assert out.loc[2, "explanation"].startswith("Blank row in the file")

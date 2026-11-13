@@ -42,6 +42,7 @@ REASON_LABEL = {
     "unmatched_address": "Not found in the county's single-family records",
     "ambiguous_address": "Matches several parcels",
     "invalid_input": "No usable asking price",
+    "duplicate_house": "Same house listed twice",
 }
 TIER_LABEL = {"under20": "under 20 years old", "20plus": "20 years or older"}
 HELP = {
@@ -140,7 +141,9 @@ def status_text(r):
 
 
 def address_of(r):
-    return r["matched_address"] if pd.notna(r["matched_address"]) else r["address"]
+    if pd.notna(r["matched_address"]):
+        return r["matched_address"]
+    return r["address"] if str(r["address"] if pd.notna(r["address"]) else "").strip() else "(blank row)"
 
 
 def results_table(view: pd.DataFrame, contingency: str):
