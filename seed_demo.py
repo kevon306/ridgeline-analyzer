@@ -2,7 +2,9 @@
 
     DATABASE_URL=mysql://... DEMO_PASSWORD='...' python seed_demo.py
 
-The demo user (demo@ridgeline.example) is created only if it does not exist; an existing one is reused unchanged.
+On iscs2, where students cannot run one-off commands, set DEMO_PASSWORD on the app instead
+(`dokku config:set <app> DEMO_PASSWORD=...`): the app then seeds once when it starts (app.py ->
+seed_from_environment). The demo user (demo@ridgeline.example) is created only if it does not exist; an existing one is reused unchanged.
 The password comes from the DEMO_PASSWORD environment variable, never from this file. Each run is created only if
 the demo user has no run with that name yet, so running the script twice adds nothing. Addresses are real parcels
 from the development extract (data/gwinnett_extract.db); every asking price is made up (living area x a random
@@ -78,6 +80,23 @@ def seed(engine, password: str, extract: Path = EXTRACT) -> dict:
         save_run(engine, uid, name, score_batch(candidates, extract, params))
         created.append(name)
     return {"user_id": uid, "created": created, "skipped": skipped}
+
+
+def seed_from_environment(engine) -> dict | None:
+    """Seed when DEMO_PASSWORD is set (the app calls this once per server process, because students cannot run
+    one-off commands on iscs2). Returns the result, or None when DEMO_PASSWORD is not set. Never raises: a problem is
+    printed to the log (without the password) and the app carries on."""
+    password = os.environ.get("DEMO_PASSWORD")
+    if not password or engine is None:
+        return None
+    try:
+        result = seed(engine, password)
+    except Exception as e:                                   # the app must keep working whatever happens here
+        print(f"Demo seed skipped: {type(e).__name__}: {e}", file=sys.stderr)
+        return None
+    print(f"Demo seed: user id {result['user_id']}, created {len(result['created'])} run(s), "
+          f"skipped {len(result['skipped'])} that already existed.")
+    return result
 
 
 def main(argv=None) -> int:
