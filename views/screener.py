@@ -15,7 +15,7 @@ import streamlit as st
 from ridgeline_core.arv import load_params
 from ridgeline_core.county_store import load_county_subset, lookup_parcels, prepare
 import evidence_panel
-from report import how_calculated, top5_html
+from report import how_calculated, loss_note, top5_html
 from ridgeline_core import evidence as ev
 from ridgeline_core.pipeline import load_candidates, normalize_street, score_batch, zip5
 from ridgeline_core.reliability import arv_reliability
@@ -260,6 +260,9 @@ else:
     st.dataframe(styler, hide_index=True, width="stretch", column_config=config,
                  column_order=["Rank", "Property address", "Asking price", "Resale value (est.)", "Based on",
                                "Projected profit (est.)", "Projected ROI (est.)"])
+    note = loss_note(ranked.head(5))
+    if note:
+        st.warning(note)
     st.caption(EST_CAPTION)
     st.caption("Ranked from highest to lowest projected ROI. Only properties that passed the price screen and could be valued are ranked. "
                "Projected ROI is an estimate, not a guaranteed return.")
@@ -319,7 +322,8 @@ r = scored[scored["row_id"] == pick].iloc[0]
 
 with st.container(border=True):
     st.markdown(f"#### {address_of(r)}")
-    (st.success if r["status"] == "ranked" else st.info)(f"**{status_text(r)}.** {r['explanation']}")
+    same = r["explanation"].rstrip(".") == REASON_LABEL.get(r["reason"])        # don't say the same sentence twice
+    (st.success if r["status"] == "ranked" else st.info)(f"**{status_text(r)}.**" + ("" if same else f" {r['explanation']}"))
 
     st.markdown("**Property and status**")
     a, b, c3 = st.columns(3)

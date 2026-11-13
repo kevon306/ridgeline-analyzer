@@ -1,7 +1,7 @@
-streamlit>=1.50
-pandas
-numpy
-sqlalchemy
-pymysql
-cryptography
-bcrypt
+streamlit==1.67.0
+pandas==3.1.1
+numpy==2.5.4
+sqlalchemy==2.1.8
+pymysql==1.2.4
+cryptography==50.0.2
+bcrypt==5.0.0

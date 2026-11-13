@@ -2,6 +2,8 @@
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from report import reliability_text, top5_html  # noqa: E402
@@ -57,3 +59,26 @@ def test_explanation_with_the_approved_parameters():
                    "ROI = projected profit ÷ (asking price + renovation)"):
         assert needle in text, needle
     assert "Worked example" not in text                                                          # no row given, no example
+
+
+def test_loss_note_counts_the_top_five_projected_to_lose_money():
+    import pandas as pd
+    from report import loss_note
+    top = lambda *rois: pd.DataFrame({"roi_pct": list(rois)})
+    assert loss_note(top(10.6, 5.9, 1.0, 0.5, 0.0)) is None                                   # zero is not a loss
+    assert loss_note(top(10.6, 5.9, 1.0, -0.3, -2.3)) == (
+        "2 of these five are projected to lose money. They rank highest only because the others rank lower.")
+    assert loss_note(top(10.6, 5.9, 1.0, 0.5, -2.3)) == (
+        "1 of these five is projected to lose money. It ranks highest only because the others rank lower.")
+    assert loss_note(top(4.0, -1.0, -3.0)).startswith("2 of these three are projected to lose money.")
+
+
+def test_loss_note_on_a_real_scored_list():
+    from report import loss_note
+    c = load_candidates(ROOT / "data" / "candidates_dev_fixture.csv")
+    c["asking_price"] = (pd.to_numeric(c["asking_price"], errors="coerce") * 1.12).round().astype("Int64").astype(str)   # TEST: dearer asks
+    scored = score_batch(c, ROOT / "data" / "gwinnett_extract.db", P)
+    top = scored[scored["status"] == "ranked"].head(5)
+    n = int((top["roi_pct"] < 0).sum())
+    assert n >= 1
+    assert loss_note(top).startswith(f"{n} of these five ")
