@@ -228,3 +228,41 @@ def test_seed_demo_uses_only_extract_addresses():
     con.close()
     for _, c in seed_demo.synthetic_lists():
         assert set(zip(c["address"], c["zip"])) <= known and len(c) == seed_demo.ROWS_PER_RUN
+
+
+def test_seed_from_environment_runs_only_when_demo_password_is_set(engine, monkeypatch, capsys):
+    monkeypatch.delenv("DEMO_PASSWORD", raising=False)
+    assert seed_demo.seed_from_environment(engine) is None
+    with engine.connect() as con:
+        assert con.execute(select(func.count()).select_from(users)).scalar() == 0
+    monkeypatch.setenv("DEMO_PASSWORD", "TEST-demo-password-123")
+    first = seed_demo.seed_from_environment(engine)
+    again = seed_demo.seed_from_environment(engine)
+    assert len(first["created"]) == seed_demo.N_RUNS and again["created"] == []
+    out = capsys.readouterr()
+    assert "TEST-demo-password-123" not in out.out + out.err                               # never logged
+
+
+def test_seed_from_environment_never_breaks_the_app(engine, monkeypatch, capsys):
+    monkeypatch.setenv("DEMO_PASSWORD", "too-short")                                       # refused by the password rule
+    assert seed_demo.seed_from_environment(engine) is None
+    assert "Demo seed skipped" in capsys.readouterr().err
+    assert seed_demo.seed_from_environment(None) is None                                   # no database configured
+
+
+def test_app_seeds_the_demo_runs_on_first_load_when_demo_password_is_set(monkeypatch, tmp_path):
+    import streamlit as st
+    monkeypatch.setenv("DATABASE_URL", "sqlite://")
+    monkeypatch.setenv("DEMO_PASSWORD", "TEST-demo-password-123")
+    monkeypatch.setenv("RIDGELINE_EVIDENCE_DB", str(tmp_path / "evidence.db"))
+    st.cache_resource.clear()                                                              # a fresh "server process"
+    for _ in range(2):                                                                     # second load adds nothing
+        at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
+        at.run()
+        assert not at.exception and [t.value for t in at.title] == ["Ridgeline Property Analytics"]
+    eng = db_engine()
+    with eng.connect() as con:
+        uid = con.execute(select(users.c.id).where(users.c.email == seed_demo.DEMO_EMAIL)).scalar()
+    mine = list_runs(eng, uid)
+    assert len(mine) == seed_demo.N_RUNS and mine["name"].str.contains("SYNTHETIC").all()
+    st.cache_resource.clear()
