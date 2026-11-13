@@ -261,12 +261,13 @@ def render_all_results(scored: pd.DataFrame, ctx: dict):
 def _reliability_box(rl: dict):
     with st.expander("How reliable is this resale value estimate?"):
         st.markdown(
-            f"- **Within 15%, among houses the tool could value: {rl['hit_rate_valued']*100:.0f}%** "
+            f"- **Within 15%, among houses the tool could value: {rl['hit_rate_valued']*100:.1f}%** "
             f"({rl['hits']:,} of {rl['valued']:,})\n"
-            f"- **Within 15%, counting houses it could not value as misses: {rl['hit_rate_all']*100:.0f}%** "
+            f"- **Could be valued (coverage): {rl['valued']/rl['tested']*100:.1f}%** ({rl['valued']:,} of {rl['tested']:,})\n"
+            f"- **Within 15%, counting houses it could not value as misses: {rl['hit_rate_all']*100:.1f}%** "
             f"({rl['hits']:,} of {rl['tested']:,})\n"
             f"- Houses tested: {rl['tested']:,} · without a usable estimate: {rl['unvalued']:,} "
-            f"({rl['unvalued']/rl['tested']*100:.0f}%, all for too few comparable sales)\n"
+            f"({rl['unvalued']/rl['tested']*100:.1f}%, all for too few comparable sales)\n"
             f"- Typical miss: {rl['median_abs_error']*100:.1f}% (median); estimates ran {abs(rl['median_signed_error'])*100:.1f}% "
             f"{'below' if rl['median_signed_error'] < 0 else 'above'} the next sale on average")
         st.caption(
@@ -288,6 +289,9 @@ def render_detail(scored: pd.DataFrame, ctx: dict):
     pins, facts, index, econ = ctx["pins"], ctx["facts"], ctx["index"], ctx["econ"]
     reno_validation = ctx["reno_validation"]
     st.subheader("How a property was evaluated")
+    if scored.empty:
+        st.caption("No properties to show.")
+        return
     labels = {int(r["row_id"]): f"{('#' + str(int(r['rank'])) + '  ') if pd.notna(r['rank']) else ''}{address_of(r)}  ({STATUS_LABEL[r['status']]})"
               for _, r in scored.iterrows()}
     if st.session_state.get(f"{p}pick") not in labels:

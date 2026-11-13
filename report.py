@@ -18,9 +18,10 @@ def reliability_text() -> str | None:
     rl = arv_reliability()
     if not rl or not rl["verified"]:
         return None
-    return (f"Resale value (ARV) back-test on {rl['tested']:,} past repeat sales: {rl['hit_rate_valued']*100:.0f}% of the "
+    return (f"Resale value (ARV) back-test on {rl['tested']:,} past repeat sales: {rl['hit_rate_valued']*100:.1f}% of the "
             f"{rl['valued']:,} houses that could be valued landed within 15% of the next sale price; counting the "
-            f"{rl['unvalued']:,} houses that could not be valued as misses, {rl['hit_rate_all']*100:.0f}% did. "
+            f"{rl['unvalued']:,} houses that could not be valued as misses, {rl['hit_rate_all']*100:.1f}% did "
+            f"(coverage {rl['valued']/rl['tested']*100:.1f}%). "
             "This measures the resale value only, not renovation costs. Details: BACKTEST_PROTOCOL.md.")
 
 

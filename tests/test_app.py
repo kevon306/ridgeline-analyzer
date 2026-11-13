@@ -73,8 +73,10 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     assert any(w.value == NOTICE for w in at.warning)
     scen = next(d.value for d in at.dataframe if "Renovation scenario" in d.value.columns)              # low / expected / high
     assert scen["Projected ROI"].tolist() == ["▲ +32.9%", "▲ +27.5%", "▲ +18.3%"] and set(scen["Basis"]) == {"Model"}
-    assert any("Within 15%, among houses the tool could value: 69%" in m.value and
-               "counting houses it could not value as misses: 54%" in m.value for m in at.markdown)    # verified reliability
+    box = next(m.value for m in at.markdown if "among houses the tool could value" in m.value)     # verified reliability (T8)
+    assert "Within 15%, among houses the tool could value: 69.2%** (2,595 of 3,749)" in box
+    assert "Could be valued (coverage): 77.8%** (3,749 of 4,817)" in box
+    assert "Within 15%, counting houses it could not value as misses: 53.9%** (2,595 of 4,817)" in box
     assert any(m.value.startswith("**Renovation confidence: Low**") for m in at.markdown)              # no validation data yet
     assert any("Status code: ranked" in c.value for c in at.caption)
     assert any("Matched county record: 2665 CORK ST (parcel R3006A220)" in c.value for c in at.caption)   # the county pin,
@@ -158,3 +160,31 @@ def test_estimated_columns_say_est_and_the_explanation_is_on_the_main_page():
 def test_no_loss_note_when_all_five_are_projected_to_make_money():
     at = example_app()                                    # dev example: the top five are all positive
     assert not any("projected to lose money" in w.value for w in at.warning)
+
+
+def test_a_list_with_no_rows_does_not_crash_the_results(tmp_path, monkeypatch):
+    monkeypatch.setenv("RIDGELINE_EVIDENCE_DB", str(tmp_path / "ev.db"))
+    monkeypatch.setenv("RIDGELINE_TEST_ROOT", str(ROOT))      # the page function runs on its own, without this file's globals
+
+    def page():
+        import io
+        import os
+        import results_view as rv
+        from ridgeline_core.arv import load_params
+        from ridgeline_core.pipeline import load_candidates, score_batch
+        root = os.environ["RIDGELINE_TEST_ROOT"]
+        P = load_params(f"{root}/assumptions.json")
+        scored = score_batch(load_candidates(io.StringIO("address,zip,asking_price")), f"{root}/data/gwinnett_extract.db", P)
+        ctx = rv.context(P, {}, "test")
+        rv.render_counts(scored); rv.render_top5(scored, ctx); rv.render_all_results(scored, ctx); rv.render_detail(scored, ctx)
+
+    at = AppTest.from_function(page, default_timeout=120)
+    at.run()
+    assert not at.exception
+    assert any("No properties to show." == c.value for c in at.caption)
+
+
+def test_screener_stops_cleanly_on_a_header_only_file():
+    src = (ROOT / "views" / "screener.py").read_text()
+    guard = src.index("if candidates.empty:")
+    assert guard < src.index("scored, index = score_list(") and "no property rows" in src[guard:guard + 200]
