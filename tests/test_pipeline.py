@@ -143,3 +143,10 @@ def test_exact_column_names_win_over_aliases(tmp_path):
     f = tmp_path / "both.csv"; f.write_text("address,zip,asking_price,Price\nA,30078,1,2\n")
     df = load_candidates(f)
     assert df.attrs["renamed"] == {} and df.loc[0, "asking_price"] == "1" and df.loc[0, "Price"] == "2"
+
+
+def test_address_not_in_the_county_records_has_the_agreed_message(tmp_path):
+    db = build_db(tmp_path / "u.db", base_parcels(), three_comps())
+    r = score_batch(cands([("1 Nowhere Rd", "30078", 285_000)]), db, P, AS_OF).iloc[0]
+    assert (r["status"], r["reason"]) == ("unmatched", "unmatched_address")            # codes unchanged
+    assert r["explanation"] == "Not found in the county's single-family records."

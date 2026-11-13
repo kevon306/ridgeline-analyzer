@@ -119,3 +119,17 @@ def how_calculated(params: dict, top: pd.Series | None = None) -> str:
             "Figures are rounded to the dollar, so a line can differ from its parts by $1.",
         ]
     return "\n".join(lines)
+
+
+_COUNT_WORD = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+
+
+def loss_note(top: pd.DataFrame) -> str | None:
+    """Warning for the Top 5 when any of them has a negative projected ROI; None when none does."""
+    n = int((top["roi_pct"] < 0).sum())
+    if n == 0:
+        return None
+    these = f"these {_COUNT_WORD.get(len(top), len(top))}"
+    if n == 1:
+        return f"1 of {these} is projected to lose money. It ranks highest only because the others rank lower."
+    return f"{n} of {these} are projected to lose money. They rank highest only because the others rank lower."

@@ -48,7 +48,7 @@ EXPLAIN = {
     "no_building_record": "The county record has no usable building information (year built) for this property.",
     "no_neighborhood": "The county record has no neighborhood code, so comparable sales cannot be selected.",
     "index_unavailable": "The market price index is not available for the date needed, so comparable sales cannot be adjusted.",
-    "unmatched_address": "No county parcel matched this street address and ZIP exactly.",
+    "unmatched_address": "Not found in the county's single-family records.",
     "ambiguous_address": "More than one county parcel matched this street address and ZIP, so none was chosen.",
     "invalid_input": "The row has no usable asking price, so it could not be evaluated. (Proposed reason code, not yet approved.)",
 }

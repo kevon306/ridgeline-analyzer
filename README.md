@@ -26,8 +26,11 @@ python3 run_scoring.py --candidates data/candidates_dev_fixture.csv --out output
 | `RENOVATION_METHOD.md` | Renovation method, audit, data sources, limits and what data would improve it. |
 | `report.py` | Printable top-5 summary and the back-test reliability line shown in the dashboard. |
 | `run_scoring.py` | Command-line runner. |
-| `app.py` | The router (Streamlit `st.navigation`): `/` public home, `/login` log in or register, `/screener` the screening tool, `/dashboard` placeholder. |
+| `app.py` | The router (Streamlit `st.navigation`): `/` public home, `/login` log in or register, `/screener` the screening tool, `/saved` my saved runs, `/dashboard` placeholder. |
 | `views/` | The pages. `views/screener.py` is the screening tool: upload a candidate CSV, see the ranking, top 5 and how each property was evaluated. |
+| `results_view.py` | The results display shared by `/screener` and `/saved`: counts, Top 5 with the explanation, the full table and the detail panel. |
+| `runs.py` | Saved runs: save, list, open and delete, every query limited to the logged-in user's id. |
+| `seed_demo.py` | Creates the demo account (password from `DEMO_PASSWORD`) and 4 saved runs with SYNTHETIC asking prices; safe to run twice. |
 | `accounts.py` | Register, log in (bcrypt), log out; `require_login()` sends logged-out visitors to `/login`. |
 | `db.py` | MySQL persistence: engine from `DATABASE_URL` (`mysql://` is rewritten to `mysql+pymysql://`), and the `users`, `runs`, `run_rows` tables, created if missing. |
 | `backtest.py` | Back-tests the ARV against repeat sales on a seeded held-out half. Method fixed in `BACKTEST_PROTOCOL.md`. |

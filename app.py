@@ -1,6 +1,7 @@
 """Ridgeline Property Analytics: the router. Run with `streamlit run app.py` (the Procfile does this on the server).
 
-Pages: "/" public home, "/login" log in or register, "/screener" the screening tool, "/dashboard" placeholder.
+Pages: "/" public home, "/login" log in or register, "/screener" the screening tool, "/saved" my saved runs,
+"/dashboard" placeholder.
 Private pages call accounts.require_login() first, which sends a logged-out visitor to /login.
 """
 import streamlit as st
@@ -13,6 +14,7 @@ pages = [
     st.Page("views/home.py", title="Home", icon=":material/home:", default=True),        # "/"
     st.Page("views/login.py", title="Log in", icon=":material/login:", url_path="login"),
     st.Page("views/screener.py", title="Screener", icon=":material/search:", url_path="screener"),
+    st.Page("views/saved.py", title="My saved runs", icon=":material/history:", url_path="saved"),
     st.Page("views/dashboard.py", title="Dashboard", icon=":material/dashboard:", url_path="dashboard"),
 ]
 page = st.navigation(pages)

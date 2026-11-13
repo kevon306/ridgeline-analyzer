@@ -84,7 +84,8 @@ def test_detail_panel_shows_inputs_codes_and_the_renovation_notice():
     labels = {m.label: m.value for m in at.metric}
     assert "Estimated resale value (ARV)" not in labels and "Projected ROI" not in labels
     assert any("unmatched_address" in c.value for c in at.caption)
-    assert any("No county parcel matched" in i.value for i in at.info)
+    box = [i.value for i in at.info if "Could not match" in i.value]
+    assert box == ["**Could not match · Not found in the county's single-family records.**"]          # said once, not twice
     assert labels["Reason"] == "Not found in the county's single-family records"            # display label only
     assert any("Could not match · Not found in the county's single-family records." in i.value for i in at.info)
     assert any("Looked up as street “1 NONEXISTENT RD” in ZIP" in c.value for c in at.caption)
@@ -152,3 +153,8 @@ def test_estimated_columns_say_est_and_the_explanation_is_on_the_main_page():
     body = next(m.value for m in at.markdown if "Worked example" in m.value)
     assert "ROI = projected profit ÷ (asking price + renovation)" in body and "2665 CORK ST" in body
     assert "\\$225,869" in body and "27.5%" in body                                  # the #1 listing's own figures
+
+
+def test_no_loss_note_when_all_five_are_projected_to_make_money():
+    at = example_app()                                    # dev example: the top five are all positive
+    assert not any("projected to lose money" in w.value for w in at.warning)
