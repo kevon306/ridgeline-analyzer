@@ -50,7 +50,7 @@ def test_top_five_and_full_table_follow_the_engine_ranking():
     assert len(full) == 20                                  # every row accounted for
     ranks = [r for r in full["Rank"] if r]
     assert ranks[:5] == top["Rank"].tolist() and ranks[5:] == [str(i) for i in range(6, 15)]
-    assert (full["Projected ROI"][full["Rank"] == ""] == "—").all()   # no ROI invented for unranked rows
+    assert (full["Projected ROI (est.)"][full["Rank"] == ""] == "—").all()   # no ROI invented for unranked rows
 
 
 def test_status_filter_shows_when_it_is_on_and_resets():
@@ -135,3 +135,20 @@ def test_detail_panel_tables_convert_to_arrow_without_streamlits_automatic_fixes
         for lg in loggers:
             lg.removeHandler(handler)
     assert hits == []                                     # e.g. the completeness table's mixed number/blank value column
+
+
+def test_estimated_columns_say_est_and_the_explanation_is_on_the_main_page():
+    at = example_app()
+    top, full = at.dataframe[0].value, at.dataframe[1].value
+    estimated = ["Resale value (est.)", "Renovation (est.)", "Projected profit (est.)", "Projected ROI (est.)"]
+    for table in (top, full):
+        assert set(estimated) <= set(table.columns)
+        assert not {"Resale value", "Renovation", "Projected profit", "Projected ROI"} & set(table.columns)   # no unmarked copies
+        assert "Asking price" in table.columns                                                             # the one listed fact
+    assert top["Based on"].tolist() == ["Based on 6 sales", "Based on 3 sales", "Based on 30 sales", "Based on 3 sales", "Based on 3 sales"]
+    captions = [c.value for c in at.caption]
+    assert captions.count("Asking price comes from the listing; everything marked est. is our estimate.") == 2   # under both tables
+    assert "#### How these numbers are calculated" in [m.value for m in at.markdown]
+    body = next(m.value for m in at.markdown if "Worked example" in m.value)
+    assert "ROI = projected profit ÷ (asking price + renovation)" in body and "2665 CORK ST" in body
+    assert "\\$225,869" in body and "27.5%" in body                                  # the #1 listing's own figures

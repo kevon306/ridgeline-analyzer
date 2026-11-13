@@ -15,7 +15,7 @@ import streamlit as st
 from ridgeline_core.arv import load_params
 from ridgeline_core.county_store import load_county_subset, lookup_parcels, prepare
 import evidence_panel
-from report import top5_html
+from report import how_calculated, top5_html
 from ridgeline_core import evidence as ev
 from ridgeline_core.pipeline import load_candidates, normalize_street, score_batch, zip5
 from ridgeline_core.reliability import arv_reliability
@@ -52,6 +52,7 @@ HELP = {
     "roi": "Projected net profit divided by (asking price + renovation). An estimate, not a guaranteed or annualized return.",
     "invest": "The ROI denominator in the approved formula: asking price + renovation (likely, with contingency).",
 }
+EST_CAPTION = "Asking price comes from the listing; everything marked est. is our estimate."
 POS, NEG, NAVY, TOP5_BG = "#1E7B4C", "#B42318", "#1F3A5F", "#E8EEF7"
 
 st.markdown(f"""<style>
@@ -139,10 +140,11 @@ def results_table(view: pd.DataFrame):
         "Rank": view["rank"].map(lambda r: "" if pd.isna(r) else (f"★ {int(r)}" if int(r) <= 5 else str(int(r)))),
         "Property address": view.apply(address_of, axis=1),
         "Asking price": view["asking_price_used"].map(money),
-        "Resale value": view["arv"].map(money),
-        "Renovation": view["reno_likely_with_contingency"].map(money),
-        "Projected profit": view["net_profit"].map(profit_text),
-        "Projected ROI": view["roi_pct"].map(roi_text),
+        "Resale value (est.)": view["arv"].map(money),
+        "Based on": view["comp_count"].map(lambda n: "" if pd.isna(n) else f"Based on {int(n)} sales"),
+        "Renovation (est.)": view["reno_likely_with_contingency"].map(money),
+        "Projected profit (est.)": view["net_profit"].map(profit_text),
+        "Projected ROI (est.)": view["roi_pct"].map(roi_text),
         "Status": view.apply(status_text, axis=1),
     }, index=view.index)
     top = view["top5"].fillna(False).astype(bool)
@@ -153,15 +155,16 @@ def results_table(view: pd.DataFrame):
     def sign_color(v):
         return f"color: {POS}" if v.startswith("▲") else (f"color: {NEG}" if v.startswith("▼") else "")
 
-    styler = t.style.apply(row_style, axis=1).map(sign_color, subset=["Projected profit", "Projected ROI"])
+    styler = t.style.apply(row_style, axis=1).map(sign_color, subset=["Projected profit (est.)", "Projected ROI (est.)"])
     config = {
         "Rank": st.column_config.Column(width=55, help="★ marks the top five by projected ROI. Only ranked properties get a rank."),
         "Property address": st.column_config.Column(width=185),
         "Asking price": st.column_config.Column(help="Asking price from your file."),
-        "Resale value": st.column_config.Column(help="Estimated resale value (ARV). " + HELP["arv"]),
-        "Renovation": st.column_config.Column(help=f"Likely renovation figure plus {contingency} contingency. " + HELP["reno"]),
-        "Projected profit": st.column_config.Column(help=HELP["profit"]),
-        "Projected ROI": st.column_config.Column(help=HELP["roi"]),
+        "Resale value (est.)": st.column_config.Column(help="Estimated resale value (ARV). " + HELP["arv"]),
+        "Based on": st.column_config.Column(help="How many nearby sales the resale value estimate rests on."),
+        "Renovation (est.)": st.column_config.Column(help=f"Likely renovation figure plus {contingency} contingency. " + HELP["reno"]),
+        "Projected profit (est.)": st.column_config.Column(help=HELP["profit"]),
+        "Projected ROI (est.)": st.column_config.Column(help=HELP["roi"]),
         "Status": st.column_config.Column(width=235, help="Why a property is or is not ranked. Pick it below for the full explanation."),
     }
     return styler, config
@@ -255,9 +258,14 @@ if ranked.empty:
 else:
     styler, config = results_table(ranked.head(5))
     st.dataframe(styler, hide_index=True, width="stretch", column_config=config,
-                 column_order=["Rank", "Property address", "Asking price", "Resale value", "Projected profit", "Projected ROI"])
+                 column_order=["Rank", "Property address", "Asking price", "Resale value (est.)", "Based on",
+                               "Projected profit (est.)", "Projected ROI (est.)"])
+    st.caption(EST_CAPTION)
     st.caption("Ranked from highest to lowest projected ROI. Only properties that passed the price screen and could be valued are ranked. "
                "Projected ROI is an estimate, not a guaranteed return.")
+    with st.container(border=True):
+        st.markdown("#### How these numbers are calculated")
+        st.markdown(how_calculated(params, ranked.iloc[0]).replace("$", "\\$"))          # unescaped $...$ renders as math
     st.download_button("Download a printable top-5 summary", top5_html(scored, params, source_label, datetime.date.today().isoformat()),
                        file_name="ridgeline_top5.html", mime="text/html",
                        help="A one-page summary to open in your browser and print or save as PDF.")
@@ -293,8 +301,11 @@ else:
     st.session_state["table_row_ids"] = [int(x) for x in view["row_id"]]
     styler, config = results_table(view)
     st.dataframe(styler, hide_index=True, width="stretch", column_config=config, key="results_table",
+                 column_order=["Rank", "Property address", "Asking price", "Resale value (est.)", "Renovation (est.)",
+                               "Projected profit (est.)", "Projected ROI (est.)", "Status"],
                  height=min(len(view), 25) * 35 + 42,
                  on_select=pick_from_table, selection_mode="single-row")
+    st.caption(EST_CAPTION)
     st.caption(f"Money in US dollars; ROI = projected net profit ÷ (asking + renovation). ★ and shading mark the top five. Rows are already in rank order (clicking a column heading sorts it as text). Click a row to see how it was evaluated. Renovation figures: {NOTICE} "
                "Projected ROI is an estimate, not a guaranteed return.")
 st.download_button("Download all results (CSV)", scored.to_csv(index=False), file_name="scored.csv", mime="text/csv")

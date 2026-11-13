@@ -66,3 +66,56 @@ and renovation beyond the contingency. A screening estimate, not a guaranteed or
 {f'<p class="note">{html.escape(rel)}</p>' if rel else ''}
 <p class="note">Data: {html.escape(source_label)}.</p>
 </body></html>"""
+
+
+def _rate(x) -> str:
+    """A parameter fraction as a plain percentage: 0.08 -> '8%', 0.0075 -> '0.75%'."""
+    return f"{x * 100:g}%"
+
+
+ROI_FORMULA = "ROI = projected profit ÷ (asking price + renovation)"
+
+
+def how_calculated(params: dict, top: pd.Series | None = None) -> str:
+    """Plain-English explanation of the figures on the results page, with every rate read from `params`
+    (assumptions.json) and, when `top` (the number-one ranked row) is given, a worked example from its own figures."""
+    bands = params["reno_per_sqft"]
+    cutoff = params["age_cutoff_years"]
+    hold_total = params["holding_pct_per_month"] * params["holding_months"]
+    lines = [
+        "- **Asking price** comes from your listing file. Everything else is an estimate.",
+        f"- **Resale value (est.)** is estimated from recent sales of similar-sized homes in the same neighborhood "
+        f"(at least {params['min_comps']} sales, within {params['window_months'][0]} months, or "
+        f"{params['window_months'][-1]} if there are too few), each adjusted to today with the county price index.",
+        f"- **Selling costs** are {_rate(params['selling_pct'])} of the resale value.",
+        f"- **Holding costs** are {_rate(params['holding_pct_per_month'])} of the asking price per month for "
+        f"{params['holding_months']} months ({_rate(hold_total)} of the asking price in total).",
+        f"- **Renovation (est.)** is a per-square-foot band chosen by the home's age: likely "
+        f"${bands['under20']['likely']:,.2f} per sq ft for homes under {cutoff} years old and "
+        f"${bands['20plus']['likely']:,.2f} for {cutoff} years or older, plus {_rate(params['contingency'])} contingency "
+        f"on that likely figure. It is a screening estimate, not a construction estimate.",
+        "- **Projected profit (est.)** = resale value − selling costs − asking price − renovation − holding costs.",
+        f"- **{ROI_FORMULA}.** It is an estimate, not a guaranteed or annualized return.",
+    ]
+    if top is not None:
+        rate = bands[top["reno_tier"]]["likely"]
+        sqft = top["reno_likely_base"] / rate
+        age = f"under {cutoff} years old" if top["reno_tier"] == "under20" else f"{cutoff} years or older"
+        lines += [
+            "",
+            f"**Worked example: #1, {top['matched_address']}**",
+            f"- Asking price: {_money(top['asking_price_used'])}",
+            f"- Resale value (est.): {_money(top['arv'])}, based on {int(top['comp_count'])} nearby sales",
+            f"- Selling costs: {_rate(params['selling_pct'])} × {_money(top['arv'])} = {_money(top['selling'])}",
+            f"- Holding costs: {_rate(params['holding_pct_per_month'])} × {_money(top['asking_price_used'])} × "
+            f"{params['holding_months']} months = {_money(top['holding'])}",
+            f"- Renovation (est.): {sqft:,.0f} sq ft × ${rate:,.2f} (likely, home {age}) = {_money(top['reno_likely_base'])}, "
+            f"+ {_rate(params['contingency'])} contingency = {_money(top['reno_likely_with_contingency'])}",
+            f"- Projected profit (est.): {_money(top['arv'])} − {_money(top['selling'])} − {_money(top['asking_price_used'])} − "
+            f"{_money(top['reno_likely_with_contingency'])} − {_money(top['holding'])} = {_money(top['net_profit'])}",
+            f"- Projected ROI (est.): {_money(top['net_profit'])} ÷ ({_money(top['asking_price_used'])} + "
+            f"{_money(top['reno_likely_with_contingency'])}) = {top['roi_pct']:.1f}%",
+            "",
+            "Figures are rounded to the dollar, so a line can differ from its parts by $1.",
+        ]
+    return "\n".join(lines)
