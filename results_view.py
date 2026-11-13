@@ -285,6 +285,27 @@ def _reliability_box(rl: dict):
             st.warning(f"These figures were recomputed from the per-house results but do not match the recorded summary: {rl['discrepancy']}")
 
 
+BULK_PPSF = 1_000      # a sale above this price per sq ft is likely a portfolio transfer (revision log R-03, case T9)
+
+
+def comps_table(comps: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """The comparable-sales table for the detail panel, with a note on any sale above BULK_PPSF per sq ft.
+    Display only: the flagged sales stay in the estimate exactly as graded in the back-test."""
+    bulk = comps["ppsf"] > BULK_PPSF
+    table = pd.DataFrame({"Address": comps["address"], "Sale date": comps["sale_date"], "Sale price": comps["amount"].map(money),
+                          "Sq ft": comps["fin_sqft"].map(lambda v: f"{v:,}"), "$ per sq ft": comps["ppsf"].map(lambda v: f"${v:,.0f}"),
+                          "Adjusted to as-of date": comps["adj_ppsf"].map(lambda v: f"${v:,.0f}"),
+                          "Note": bulk.map({True: "Possible bulk transfer", False: ""})})
+    return table, int(bulk.sum())
+
+
+def bulk_note(n: int) -> str:
+    sales = "1 sale" if n == 1 else f"{n} sales"
+    return (f"{sales} above \\${BULK_PPSF:,} per sq ft marked “Possible bulk transfer”: the county can record a portfolio sale at its total "
+            "price on every house in it. It is still included in the resale value, as in the graded back-test; treat this estimate "
+            "with extra caution and check the sale before relying on it.")
+
+
 def render_detail(scored: pd.DataFrame, ctx: dict):
     """The per-property panel: status, ARV and comps, renovation (with risk flags and your scope), projected return,
     renovation evidence. For a saved run, parts whose inputs were not saved say so instead of showing a guess."""
@@ -343,10 +364,10 @@ def render_detail(scored: pd.DataFrame, ctx: dict):
                        f"The price screen needs at least ${params['min_spread']:,.0f}.")
             comps = pd.DataFrame(json.loads(r["comps_json"])) if isinstance(r["comps_json"], str) and r["comps_json"] else pd.DataFrame()
             if not comps.empty:
-                st.dataframe(pd.DataFrame({"Address": comps["address"], "Sale date": comps["sale_date"], "Sale price": comps["amount"].map(money),
-                                           "Sq ft": comps["fin_sqft"].map(lambda v: f"{v:,}"), "$ per sq ft": comps["ppsf"].map(lambda v: f"${v:,.0f}"),
-                                           "Adjusted to as-of date": comps["adj_ppsf"].map(lambda v: f"${v:,.0f}")}),
-                             hide_index=True, width="stretch")
+                table, n_bulk = comps_table(comps)
+                st.dataframe(table, hide_index=True, width="stretch")
+                if n_bulk:
+                    st.caption(bulk_note(n_bulk))
         else:
             st.caption("Not estimated: " + r["explanation"])
 

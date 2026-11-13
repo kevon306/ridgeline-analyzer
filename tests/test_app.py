@@ -188,3 +188,26 @@ def test_screener_stops_cleanly_on_a_header_only_file():
     src = (ROOT / "views" / "screener.py").read_text()
     guard = src.index("if candidates.empty:")
     assert guard < src.index("scored, index = score_list(") and "no property rows" in src[guard:guard + 200]
+
+
+def test_comps_over_1000_per_sqft_are_flagged_as_possible_bulk_transfers_without_changing_them():
+    import pandas as pd
+    import results_view as rv
+    comps = pd.DataFrame({"address": ["4252 MARJORIE RD", "1 A ST", "2 B ST"], "sale_date": ["2025-05-28", "2025-06-01", "2025-07-01"],
+                          "amount": [3_284_000, 300_000, 2_000_000], "fin_sqft": [2_046, 2_000, 2_000],
+                          "ppsf": [1_605.1, 150.0, 1_000.0], "adj_ppsf": [1_566.0, 148.0, 990.0]})
+    table, n = rv.comps_table(comps)
+    assert n == 1                                                       # strictly above $1,000: exactly $1,000 is not flagged
+    assert list(table["Note"]) == ["Possible bulk transfer", "", ""]
+    assert list(table["Sale price"]) == ["$3,284,000", "$300,000", "$2,000,000"]   # the sale itself is shown unchanged
+    assert "still included in the resale value" in rv.bulk_note(1) and rv.bulk_note(1).startswith("1 sale ")
+    assert rv.bulk_note(2).startswith("2 sales ")
+
+
+def test_detail_panel_has_a_note_column_and_no_bulk_caption_when_no_comp_is_flagged():
+    at = example_app()
+    at.session_state["pick"] = 2                                        # a ranked row of the development example
+    at.run()
+    assert not at.exception
+    assert any("Note" in df.value.columns for df in at.dataframe)
+    assert not any("Possible bulk transfer" in c.value for c in at.caption)
