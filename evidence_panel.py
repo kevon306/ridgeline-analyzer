@@ -52,7 +52,8 @@ def render(con: sqlite3.Connection, r: pd.Series, county: dict, pin: str | None,
 
     with st.expander("Property data completeness: what is verified, missing or uncertain"):
         comp = ev.completeness(county, facts, findings)
-        st.dataframe(comp.assign(priority=comp["priority"].map(lambda p: "" if p is None else str(int(p)))),
+        st.dataframe(comp.assign(priority=comp["priority"].map(lambda p: "" if p is None else str(int(p))),
+                                 value=comp["value"].map(lambda v: "" if v is None or pd.isna(v) else str(v))),   # text: mixed numbers and blanks break Arrow
                      hide_index=True, width="stretch", height=(len(comp) + 1) * 35 + 3,
                      column_config={"impact": st.column_config.Column(help="How much this item can move a renovation budget "
                                                                       "(a suggested order, not a measured ranking).")})

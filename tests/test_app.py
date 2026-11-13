@@ -110,3 +110,28 @@ def test_evidence_panel_shows_saved_inspection_completeness_and_feedback(evidenc
     assert any("Roof** (elevated)" in m.value and "replace" in m.value for m in at.markdown)            # inspection drives the flag
     assert any("HVAC** (documented)" in m.value for m in at.markdown)
     assert any("vs verified final cost" in m.value and "12,500" in m.value for m in at.markdown)        # feedback
+
+
+def test_detail_panel_tables_convert_to_arrow_without_streamlits_automatic_fixes():
+    import logging
+    hits = []
+
+    class Catch(logging.Handler):
+        def emit(self, record):
+            if "Serialization of dataframe to Arrow table was unsuccessful" in record.getMessage():
+                hits.append(record.getMessage())
+
+    handler = Catch()
+    loggers = [logging.getLogger(n) for n in ["streamlit"] + [k for k in logging.root.manager.loggerDict if k.startswith("streamlit")]]
+    for lg in loggers:
+        lg.addHandler(handler)
+    try:
+        at = example_app()
+        for rid in (2, 14, 16, 19, 20):                   # ranked, eliminated, could not value, unmatched, invalid price
+            at.session_state["pick"] = rid
+            at.run()
+            assert not at.exception
+    finally:
+        for lg in loggers:
+            lg.removeHandler(handler)
+    assert hits == []                                     # e.g. the completeness table's mixed number/blank value column
