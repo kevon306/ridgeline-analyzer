@@ -1,5 +1,5 @@
 # Ridgeline Property Analytics: Property Investment ROI Analyzer (Gwinnett County, GA)
-
+“Ridgeline (tested)”
 A screening tool, not a guarantee of profit, an inspection, or professional advice.
 
 ## Run it on your own computer (optional)
