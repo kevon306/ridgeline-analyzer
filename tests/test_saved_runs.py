@@ -15,6 +15,7 @@ import accounts  # noqa: E402
 import results_view as rv  # noqa: E402
 import seed_demo  # noqa: E402
 from accounts import authenticate, register  # noqa: E402
+from brand import HOME_HEADLINE  # noqa: E402
 from db import make_engine, run_rows, runs, users  # noqa: E402
 from ridgeline_core.arv import load_params  # noqa: E402
 from ridgeline_core.pipeline import load_candidates, load_parcel_index, score_batch  # noqa: E402
@@ -293,7 +294,7 @@ def test_app_seeds_the_demo_runs_on_first_load_when_demo_password_is_set(monkeyp
     for _ in range(2):                                                                     # second load adds nothing
         at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
         at.run()
-        assert not at.exception and [t.value for t in at.title] == ["Ridgeline Property Analytics"]
+        assert not at.exception and [t.value for t in at.title] == [HOME_HEADLINE]
     eng = db_engine()
     with eng.connect() as con:
         uid = con.execute(select(users.c.id).where(users.c.email == seed_demo.DEMO_EMAIL)).scalar()

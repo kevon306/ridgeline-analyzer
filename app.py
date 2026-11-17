@@ -7,6 +7,7 @@ Private pages call accounts.require_login() first, which sends a logged-out visi
 import streamlit as st
 
 from accounts import app_engine, current_user, logout
+from brand import apply_brand
 from seed_demo import seed_from_environment
 
 st.set_page_config(page_title="Ridgeline Property Analytics", page_icon="🏠", layout="wide")
@@ -19,6 +20,7 @@ pages = [
     st.Page("views/dashboard.py", title="Dashboard", icon=":material/dashboard:", url_path="dashboard"),
 ]
 page = st.navigation(pages)
+apply_brand()
 
 
 @st.cache_resource(show_spinner=False)

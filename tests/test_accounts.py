@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import accounts  # noqa: E402
 from accounts import LOGIN_FAILED, RegistrationError, authenticate, register  # noqa: E402
+from brand import HOME_HEADLINE  # noqa: E402
 from db import database_url, make_engine, run_rows, runs, users  # noqa: E402
 
 PASSWORD = "correct-horse-battery"
@@ -204,7 +205,7 @@ def test_app_private_pages_send_a_logged_out_visitor_to_login(app, page):
 
 
 def test_app_home_is_public(app):
-    assert not app.exception and [t.value for t in app.title] == ["Ridgeline Property Analytics"]
+    assert not app.exception and [t.value for t in app.title] == [HOME_HEADLINE]
 
 
 def test_app_logout_clears_the_session(app):
@@ -216,7 +217,7 @@ def test_app_logout_clears_the_session(app):
     app.run()
     assert not app.exception
     assert "user" not in app.session_state and "marker" not in app.session_state
-    assert [t.value for t in app.title] == ["Ridgeline Property Analytics"]                  # back on the public home
+    assert [t.value for t in app.title] == [HOME_HEADLINE]                  # back on the public home
     app.switch_page("views/screener.py")
     app.run()
     assert [t.value for t in app.title] == ["Log in"]                                         # and locked out again

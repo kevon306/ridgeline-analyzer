@@ -4,7 +4,9 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from accounts import (LOGIN_FAILED, MIN_PASSWORD_LENGTH, RegistrationError, app_engine, authenticate, current_user,
                       log_in, register)
+from brand import masthead
 
+masthead()
 st.title("Log in")
 user = current_user()
 if user:
