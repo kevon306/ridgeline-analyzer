@@ -211,3 +211,9 @@ def test_detail_panel_has_a_note_column_and_no_bulk_caption_when_no_comp_is_flag
     assert not at.exception
     assert any("Note" in df.value.columns for df in at.dataframe)
     assert not any("Possible bulk transfer" in c.value for c in at.caption)
+
+
+def test_limits_box_says_renovation_cost_depends_on_location_and_material_prices():
+    at = example_app()
+    text = " ".join(m.value for m in at.sidebar.markdown)
+    assert "state and local area" in text and "prices you can get for materials" in text and "local contractor's quote" in text

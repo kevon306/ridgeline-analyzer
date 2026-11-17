@@ -200,7 +200,7 @@ def test_delete_needs_confirmation(app):
 # ---------------------------------------------------------------- demo seed
 def test_seed_demo_is_idempotent_and_synthetic(engine):
     first = seed_demo.seed(engine, "TEST-demo-password-123")
-    second = seed_demo.seed(engine, "a-different-password-456")                          # existing user reused as is
+    second = seed_demo.seed(engine, "TEST-demo-password-123")                             # existing user reused as is
     assert len(first["created"]) == seed_demo.N_RUNS and second["created"] == [] and second["user_id"] == first["user_id"]
     mine = list_runs(engine, first["user_id"])
     assert len(mine) == seed_demo.N_RUNS and mine["n_rows"].sum() >= 30 and (mine["n_ranked"] > 0).all()
@@ -209,8 +209,42 @@ def test_seed_demo_is_idempotent_and_synthetic(engine):
         assert con.execute(select(func.count()).select_from(users)).scalar() == 1
         assert con.execute(select(users.c.is_demo)).scalar() == 1
         assert con.execute(select(func.count()).select_from(run_rows)).scalar() == mine["n_rows"].sum()
-    assert authenticate(engine, seed_demo.DEMO_EMAIL, "TEST-demo-password-123")           # password not changed
-    assert authenticate(engine, seed_demo.DEMO_EMAIL, "a-different-password-456") is None
+    assert authenticate(engine, seed_demo.DEMO_EMAIL, "TEST-demo-password-123")
+
+
+def test_changing_demo_password_updates_only_the_demo_account(engine, capsys):
+    from accounts import register
+    other = register(engine, "someone@example.com", "their-own-password-1")
+    first = seed_demo.seed(engine, "TEST-demo-password-123")
+    again = seed_demo.seed(engine, "Copper-Ridge-4417-Lantern")                          # DEMO_PASSWORD changed
+    assert again["user_id"] == first["user_id"] and again["created"] == []                 # same account, runs kept
+    assert len(list_runs(engine, first["user_id"])) == seed_demo.N_RUNS
+    assert authenticate(engine, seed_demo.DEMO_EMAIL, "Copper-Ridge-4417-Lantern")
+    assert authenticate(engine, seed_demo.DEMO_EMAIL, "TEST-demo-password-123") is None   # old one no longer works
+    assert authenticate(engine, "someone@example.com", "their-own-password-1")["id"] == other["id"]   # untouched
+    out = capsys.readouterr().out
+    assert "password updated" in out and "Copper-Ridge-4417-Lantern" not in out             # never logged
+    with engine.connect() as con:
+        h = con.execute(select(users.c.password_hash).where(users.c.id == first["user_id"])).scalar()
+    seed_demo.seed(engine, "Copper-Ridge-4417-Lantern")                                     # unchanged: no rewrite
+    with engine.connect() as con:
+        assert con.execute(select(users.c.password_hash).where(users.c.id == first["user_id"])).scalar() == h
+
+
+def test_a_non_demo_account_with_the_demo_email_is_never_changed(engine):
+    from accounts import register
+    register(engine, seed_demo.DEMO_EMAIL, "registered-by-hand-1")                          # not flagged is_demo
+    seed_demo.seed(engine, "Copper-Ridge-4417-Lantern")
+    assert authenticate(engine, seed_demo.DEMO_EMAIL, "registered-by-hand-1")
+    assert authenticate(engine, seed_demo.DEMO_EMAIL, "Copper-Ridge-4417-Lantern") is None
+
+
+def test_a_too_short_new_demo_password_is_refused_and_the_old_one_kept(engine, monkeypatch, capsys):
+    seed_demo.seed(engine, "TEST-demo-password-123")
+    monkeypatch.setenv("DEMO_PASSWORD", "short")
+    assert seed_demo.seed_from_environment(engine) is None                                  # logged, app carries on
+    assert "Demo seed skipped" in capsys.readouterr().err
+    assert authenticate(engine, seed_demo.DEMO_EMAIL, "TEST-demo-password-123")
 
 
 def test_seed_demo_reads_the_password_only_from_the_environment(monkeypatch):

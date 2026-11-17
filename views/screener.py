@@ -72,6 +72,8 @@ with st.sidebar:
                  f"- Renovation: per-square-foot bands by age (under 20 years / 20 or more), plus {contingency} contingency on the likely figure")
     with st.expander("What this does not tell you"):
         st.write("- Renovation figures come from one contractor's ranges and have not been checked against independent cost data.\n"
+                 "- Renovation cost depends on the state and local area, labor rates and the prices you can get for materials; "
+                 "these bands are not adjusted for any of them. Use a local contractor's quote for the real figure.\n"
                  "- Not included: acquisition-side closing costs, and renovation beyond the contingency.\n"
                  "- Building size and age come from the 2026 county records.\n"
                  "- A property can pass the price screen and still have a negative projected ROI.")

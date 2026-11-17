@@ -3,6 +3,16 @@
 Written 2026-10-20. Model version **bands-v1** (approved version one). This file says what the renovation estimate is,
 what it rests on, and what it cannot do yet.
 
+## Declared limit: renovation cost accuracy is not tested (decided 2026-11-17)
+
+Renovation cost depends directly on where the house is and what the investor can get: the state and local area,
+local labor rates, what materials cost and what prices the investor can negotiate for them, and the house's actual
+condition. One set of per-square-foot bands cannot capture that, and the two contractor ranges we have disagree by 36%
+to 65% at 1,800 sq ft. We therefore do **not** claim the renovation figure is accurate and do not test it as if it
+could be: it is a pre-walkthrough screening estimate that says where to look, and the real number comes from a local
+contractor's quote for the property (enter it under "Your scope and costs"). The app's "What this does not tell you"
+box says the same. This is recorded as revision log R-14 (Won't fix) in the Phase 7 test kit.
+
 ## 1. Audit of the estimator as it stood
 
 | Finding | Effect |
