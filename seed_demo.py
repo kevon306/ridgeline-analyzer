@@ -4,7 +4,8 @@
 
 On iscs2, where students cannot run one-off commands, set DEMO_PASSWORD on the app instead
 (`dokku config:set <app> DEMO_PASSWORD=...`): the app then seeds once when it starts (app.py ->
-seed_from_environment). The demo user (demo@ridgeline.example) is created only if it does not exist; an existing one is reused unchanged.
+seed_from_environment). The demo user (demo@ridgeline.example) is created only if it does not exist. If it exists and
+DEMO_PASSWORD has changed, its password is updated to match (the demo account only, flagged is_demo); nothing else changes.
 The password comes from the DEMO_PASSWORD environment variable, never from this file. Each run is created only if
 the demo user has no run with that name yet, so running the script twice adds nothing. Addresses are real parcels
 from the development extract (data/gwinnett_extract.db); every asking price is made up (living area x a random
@@ -21,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import select, update
 
-from accounts import normalize_email, register
+from accounts import MAX_PASSWORD_BYTES, MIN_PASSWORD_LENGTH, RegistrationError, _matches, hash_password, normalize_email, register
 from db import database_url, make_engine, runs, users
 from ridgeline_core.arv import load_params
 from ridgeline_core.pipeline import score_batch
@@ -35,10 +36,19 @@ N_RUNS, ROWS_PER_RUN = 4, 10
 
 
 def demo_user(engine, password: str) -> int:
-    """The demo user's id, creating the account (flagged is_demo) if it does not exist."""
+    """The demo user's id, creating the account (flagged is_demo) if it does not exist. When it exists, is flagged
+    is_demo and DEMO_PASSWORD no longer matches it, the password is updated to DEMO_PASSWORD (same length rules as
+    registering). An account with this email that is not flagged is_demo is never changed."""
     with engine.connect() as con:
-        row = con.execute(select(users.c.id).where(users.c.email == normalize_email(DEMO_EMAIL))).first()
+        row = con.execute(select(users.c.id, users.c.password_hash, users.c.is_demo)
+                          .where(users.c.email == normalize_email(DEMO_EMAIL))).first()
     if row:
+        if row.is_demo and not _matches(password, row.password_hash.encode("ascii")):
+            if len(password) < MIN_PASSWORD_LENGTH or len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
+                raise RegistrationError(f"DEMO_PASSWORD must be {MIN_PASSWORD_LENGTH} characters to {MAX_PASSWORD_BYTES} bytes.")
+            with engine.begin() as con:
+                con.execute(update(users).where(users.c.id == row.id).values(password_hash=hash_password(password)))
+            print("Demo seed: demo account password updated to the current DEMO_PASSWORD.")
         return int(row.id)
     uid = register(engine, DEMO_EMAIL, password, "Demo investor")["id"]
     with engine.begin() as con:
