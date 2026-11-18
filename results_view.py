@@ -55,15 +55,15 @@ HELP = {
     "invest": "The ROI denominator in the approved formula: asking price + renovation (likely, with contingency).",
 }
 EST_CAPTION = "Asking price comes from the listing; everything marked est. is our estimate."
-POS, NEG, NAVY, TOP5_BG = "#1E7B4C", "#B42318", "#1F3A5F", "#E8EEF7"
+POS, NEG, NAVY, TOP5_BG = "#1E7B4C", "#B42318", "#16233F", "#EEF1F6"
 
 
 def apply_style():
     st.markdown(f"""<style>
 .block-container {{padding: 3.2rem 2rem 2rem 2rem; max-width: 1280px;}}
-.rl-header {{background: {NAVY}; color: #fff; border-radius: 10px; padding: 0.9rem 1.25rem; margin-bottom: 0.9rem;}}
+.rl-header {{background: {NAVY}; color: #fff; border-radius: 4px; border-left: 6px solid #B0602F; padding: 0.9rem 1.25rem; margin-bottom: 0.9rem;}}
 .rl-header h1 {{color: #fff; font-size: 1.55rem; font-weight: 700; margin: 0; padding: 0; line-height: 1.25;}}
-.rl-header .rl-sub {{color: #C9D6E8; font-size: 0.9rem; margin-top: 0.1rem;}}
+.rl-header .rl-sub {{color: #E3C7B6; font-size: 0.9rem; margin-top: 0.1rem;}}
 .rl-header p {{color: #E6ECF4; font-size: 0.9rem; margin: 0.45rem 0 0 0;}}
 [data-testid="stMetric"] {{background: #F6F8FB; border: 1px solid #E3E8EF; border-radius: 8px; padding: 0.55rem 0.8rem;}}
 [data-testid="stMetricValue"] {{font-size: 1.45rem;}}

@@ -50,9 +50,9 @@ def top5_html(scored: pd.DataFrame, params: dict, source_label: str, generated: 
     return f"""<!doctype html><html><head><meta charset="utf-8"><title>Ridgeline: top 5 candidates</title>
 <style>
 body {{font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; color: #1B2430; margin: 24px;}}
-h1 {{color: #1F3A5F; font-size: 20px; margin: 0;}} .sub {{color: #556; margin: 2px 0 14px 0; font-size: 13px;}}
+h1 {{color: #16233F; font-size: 20px; margin: 0;}} .sub {{color: #556; margin: 2px 0 14px 0; font-size: 13px;}}
 table {{border-collapse: collapse; width: 100%; font-size: 12px;}} th, td {{border-bottom: 1px solid #DDE3EA; padding: 6px 8px; text-align: right;}}
-th {{background: #F3F5F8; color: #1F3A5F;}} td:nth-child(2), th:nth-child(2) {{text-align: left;}}
+th {{background: #EEF1F6; color: #16233F;}} td:nth-child(2), th:nth-child(2) {{text-align: left;}}
 .note {{font-size: 11px; color: #444; margin-top: 10px;}} @media print {{body {{margin: 0;}}}}
 </style></head><body>
 <h1>Ridgeline Property Analytics: top 5 candidates by projected ROI</h1>
