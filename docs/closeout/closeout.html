@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Ridgeline Project Closeout</title>
+<style>
+:root { --navy: #16233F; --copper: #B0602F; --light: #E3C7B6; --tint: #EEF1F6; --ink: #16233F; --muted: #3D4658; --rule: #DADCE1; }
+* { box-sizing: border-box; }
+body { font-family: "Liberation Sans", Arial, Helvetica, sans-serif; color: var(--ink); font-size: 8.2pt; line-height: 1.33; margin: 0; }
+.mast { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 4px solid var(--navy); padding-bottom: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.mark { width: 30px; height: 30px; background: var(--navy); border: 2.5px solid var(--copper); color: var(--light); font-weight: 700; font-size: 15pt;
+        display: flex; align-items: center; justify-content: center; }
+.name { font-weight: 700; font-size: 15pt; letter-spacing: 0.02em; }
+.tag { color: var(--copper); font-weight: 700; font-size: 6.6pt; letter-spacing: 0.3em; margin-top: 2px; }
+.meta { text-align: right; font-size: 7.6pt; line-height: 1.45; color: var(--muted); }
+.meta b { color: var(--ink); }
+.outcome { border-left: 6px solid var(--copper); background: var(--tint); padding: 8px 12px; font-weight: 700; font-size: 10.6pt; line-height: 1.4; margin: 10px 0; }
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+.tile { background: var(--tint); border-top: 4px solid var(--copper); padding: 6px 10px; }
+.tile .n { font-size: 17pt; font-weight: 700; line-height: 1.15; }
+.tile .l { font-weight: 700; font-size: 8.6pt; }
+.tile .d { color: var(--muted); font-size: 7.6pt; }
+h2 { background: var(--navy); color: #fff; font-size: 7.6pt; letter-spacing: 0.22em; text-transform: uppercase; padding: 3px 8px; margin: 9px 0 4px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 7.3pt; table-layout: fixed; }
+th { text-align: left; font-size: 6.9pt; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-bottom: 1.5px solid var(--navy); padding: 3px 5px; }
+td { vertical-align: top; padding: 3px 5px; border-bottom: 0.6px solid var(--rule); }
+tr { break-inside: avoid; }
+td.v { font-weight: 700; }
+.met { color: #1E6B3A; } .part { color: var(--copper); } .wrong { color: #5B3A8C; } .not { color: #A3271F; }
+.instr td { background: #F8F8F9; }
+.small { font-size: 7.3pt; color: var(--muted); }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+ul { margin: 2px 0 0 0; padding-left: 14px; } li { margin-bottom: 3px; }
+.k { font-weight: 700; }
+.keep { break-inside: avoid; }
+</style></head><body>
+
+<div class="mast">
+  <div class="brand"><div class="mark">R</div><div><div class="name">RIDGELINE PROPERTY ANALYTICS</div>
+    <div class="tag">REAL ESTATE INVESTMENT ANALYTICS · GEORGIA</div></div></div>
+  <div class="meta"><b>Client:</b> MMIS 6299, Georgia College &amp; State University<br><b>Document:</b> Project Closeout · Phase 8<br>
+    <b>Project:</b> Property Investment ROI Analyzer<br><b>Repository:</b> github.com/kevon306/ridgeline-analyzer<br>
+    <b>Live app:</b> iscs2.gcsu.edu:7570<br><b>Date:</b> 19 November 2026 · v1.0 against charter v3.0</div>
+</div>
+
+<div class="outcome">Ridgeline does what the charter set out to do: it ranks a batch of Gwinnett County fix-and-flip candidates by projected return from public records alone, live behind a login on iscs2. One criterion is met, one is partly met (resale accuracy clears the 60% bar on the houses it can value, 69.2%, but not on the whole sample, 53.9%), and one turned out to be the wrong thing to measure.</div>
+
+<div class="tiles">
+  <div class="tile"><div class="n">19 of 19</div><div class="l">real listings accounted for</div><div class="d">9 ranked, 6 eliminated, 3 could not be valued, 1 not in county records; every row has a status and a plain-English reason, no manual entry</div></div>
+  <div class="tile"><div class="n">69.2% · 53.9%</div><div class="l">resale value within 15% (target 60%)</div><div class="d">of the 3,749 held-out repeat sales the tool could value · of all 4,817 tested; graded once, protocol written before the run</div></div>
+  <div class="tile"><div class="n">18 of 20</div><div class="l">Phase 7 test cases passed</div><div class="d">14 issues logged, every one decided: 10 fixed and verified, 4 declined with the cost and reason in print; 0 open</div></div>
+</div>
+
+<h2>Verdict: every charter v3.0 success criterion, then the three iscs2 requirements</h2>
+<table>
+<tr><th style="width:3%">#</th><th style="width:26%">What we promised (charter v3.0, its words)</th><th style="width:57%">What we delivered, and the evidence</th><th style="width:14%">Verdict</th></tr>
+<tr><td>1</td><td>A reader with no context can open the dashboard and correctly name the top 5 candidate properties by projected ROI. Verified by handing it to a classmate at Module 7.</td>
+<td>On 21 Oct a first-time reader with no real estate background, given only the address and the file, named the top 5 in order in under 30 seconds. On 12 Nov a second first-time reader (Dalosha Mcdowell) read the ranking as best-first and explained a low house by its negative ROI. Both are personal contacts, not classmates, and the second could not say which numbers were estimates until we labelled them (R-08, fixed and re-tested 13 Nov).</td>
+<td class="v met">Met<br><span class="small" style="font-weight:400">on two readers; the verification ran on friends, not a classmate</span></td></tr>
+<tr><td>2</td><td>For a held-out sample of at least 15 Gwinnett properties with two recorded arm's-length sales within an 18-month window, projected resale value falls within 15% of the actual second sale price for at least 60% of the sample.</td>
+<td>Graded once on 20 Oct (seed 20261020, BACKTEST_PROTOCOL.md written first): 4,817 held-out pairs, far above 15. 69.2% within 15% of the 3,749 the tool could value; 53.9% if the 1,068 it could not value (fewer than 3 comparable sales) count as misses. Dr. Marshall recomputed both figures. We asked on 22 Oct which reading the criterion means; a ruling was promised and has not reached us. "Arm's-length" was approximated (sales of $50,000 or more, price at most doubled), not verified sale by sale.</td>
+<td class="v part">Partially met<br><span class="small" style="font-weight:400">met on valued pairs; not met on the whole sample</span></td></tr>
+<tr><td>3</td><td>The pipeline produces a renovation and ROI estimate for 100% of properties pulled from the county dataset, with no manual data entry.</td>
+<td>The design scores an investor's uploaded list, not all 246,806 county homes, and about 22% of homes cannot be valued honestly (too few comparable sales), so 100% was unreachable without inventing numbers. We amended it on 7 Oct (charter v3.2, in the Phase 6 change log): every uploaded row leaves with a status and a reason, and every row that passes the price screen with 3+ comparable sales gets a renovation range and an ROI. That version is met: 19 of 19 real rows, with no manual entry (T1, T2, T18).</td>
+<td class="v wrong">The criterion was wrong<br><span class="small" style="font-weight:400">we measure the v3.2 wording instead; met on it</span></td></tr>
+<tr class="instr"><td>A</td><td>Public site in the firm's brand (instructor-directed, added 10 Nov)</td>
+<td>iscs2.gcsu.edu:7570 opens on a public page with the Ridgeline masthead and colours: what it does in one sentence, who it is for (small-scale Gwinnett fix-and-flip investors screening about 100 listings for 1 to 3 walkthroughs), four benefits with measured figures, and Log in / Create account buttons. Live 18 Nov.</td>
+<td class="v met">Met</td></tr>
+<tr class="instr"><td>B</td><td>Working login (instructor-directed)</td>
+<td>The Phase 7 login, unchanged: bcrypt-hashed passwords (T14), app pages send a logged-out visitor to the login (T12), logout clears the session (T15), each user sees only their own runs (T17). Dr. Marshall logged in with the demo account in Phase 7. The demo account holds only synthetic runs.</td>
+<td class="v met">Met</td></tr>
+<tr class="instr"><td>C</td><td>Dashboard behind the login, live from MySQL, answering a charter question (instructor-directed)</td>
+<td>Names its question on the page: "Across a batch of candidates, which are worth pursuing by projected return, and why were the rest screened out?" (the charter's problem: "no consolidated way to rank a batch of candidates by projected return"). Reads the user's saved runs on every load: 40 synthetic demo records; scoring one more list on 18 Nov moved it to 60 candidates and 14 worth pursuing.</td>
+<td class="v met">Met</td></tr>
+</table>
+<p class="small">Change log, instructor-directed change (10 Nov): public site, login and dashboard on iscs2 added after the charter was approved. They sit beside the charter criteria above, not in place of them. Cost: not tracked to the hour; about 12 hours across Phases 7 and 8 (the login and saved runs, unplanned, inside Phase 7; the public site and dashboard on 17–18 Nov). It displaced the investor blind sort and a renovation sensitivity test, neither of which we ran.</p>
+
+<h2>What we did not do, and why</h2>
+<table>
+<tr><th style="width:22%">Not done</th><th style="width:40%">Reason</th><th style="width:38%">Tradeoff</th></tr>
+<tr><td class="k">Baldwin County (S-06)</td><td>Its assessor data is a per-parcel search only, with no bulk file to load (7 Oct).</td><td>Gwinnett only. An investor in Milledgeville gets nothing from v1.</td></tr>
+<tr><td class="k">Adjustable assumptions in the app (R-05)</td><td>The first plan needed 143 hours against the 96 we had; the SHOULD and COULD tiers went first (12 Oct).</td><td>Holding, selling and renovation rates live in assumptions.json. An investor cannot model their own financing in the app.</td></tr>
+<tr><td class="k">Condition rating in the renovation figure (R-10), low-renovation flag (R-06)</td><td>Cut in the same 12 Oct scope reduction; renovation is by size and age band only.</td><td>A house the county rates in poor condition gets a typical budget; the detail panel shows its condition rating and a risk flag instead.</td></tr>
+<tr><td class="k">A profit floor in the screen</td><td>The approved rule screens on price spread only. Changing it after the graded back-test would change the method, so we added a warning under the Top 5 instead (R-05).</td><td>Houses projected to lose money can still rank in the Top 5; the reader has to read the note.</td></tr>
+<tr><td class="k">An investor's blind sort of the 19 listings</td><td>No investor was available to sort the list before the Phase 7 deadline.</td><td>No evidence yet that an investor would act on the ranking, which is the question that matters most to a buyer.</td></tr>
+</table>
+
+<div class="two keep">
+<div><h2>Limitations we carry, from Phase 7</h2>
+<ul>
+<li><span class="k">Renovation cost accuracy is not tested and is not claimed (R-14).</span> The two contractor ranges disagree by 36% to 65%, and real costs depend on state, area, labor and material prices. The real number is a local contractor's quote.</li>
+<li><span class="k">County size can differ from a listing's by more than 20%</span> when a house has a finished basement or an addition (R-02). The detail panel shows the county size used.</li>
+<li><span class="k">Bulk-sale outliers sit among some comparable sales</span> and can move a resale value by 2% to 11% (R-03). Sales above $1,000 per sq ft are flagged "Possible bulk transfer"; the numbers are unchanged, as graded.</li>
+<li><span class="k">A plain default look</span> was flagged by our outside reader (R-10); the public site is the brand pass.</li>
+</ul></div>
+<div><h2>Next steps, in order</h2>
+<ul>
+<li>Get the criterion 2 ruling and report against it.</li>
+<li>Record actual renovation costs on real projects (the evidence tables exist and are empty) so the renovation model can be validated.</li>
+<li>Re-test resale accuracy on sales after 4 May 2026, once the county republishes, with a protocol fixed in advance.</li>
+<li>Run the investor blind sort, then add adjustable assumptions (R-05) so an investor can enter their own costs.</li>
+</ul></div>
+</div>
+
+<div>
+<h2>Retrospective: what we learned</h2>
+<p class="small" style="margin:0 0 5px 0">Each of us wrote separately, before comparing. Both of us wrote, without seeing the other's answer, that the hard part was the data, not the arithmetic; that is the pattern we trust most.</p>
+<table>
+<tr><th style="width:22%">Lesson</th><th style="width:50%">Cause</th><th style="width:28%">What it would have changed</th></tr>
+<tr><td class="k">The data was the project, not the maths (both of us)</td><td>We planned our time around the model (resale value, renovation, ROI) and treated the county data as an input to load once. The engine ran end to end on 20 Oct, weeks early, but Gwinnett's records kept costing us time afterwards: addresses written differently from listings, sales at $0 or at a whole portfolio's price on every house, sizes that sometimes include basements, and a dataset too large for the class server.</td><td>In Week 3, a plan with real time for data cleanup and real listings run through it first, instead of a loader scheduled as one task.</td></tr>
+<tr><td class="k">Agree the hand-off and keep it current (Dhruv)</td><td>Most of our bugs came from where Daniel's pipeline feeds Dhruv's cost and ROI functions (field names, data types, a missing sale or asking price), not from the logic on either side. Our Phase 4 design wrote those contracts down, but we changed code without changing the contract first.</td><td>One rule from Week 1: no change to a shared field without updating the contract and telling the other person the same day.</td></tr>
+<tr><td class="k">Keep our own record of what we built and fixed (Daniel)</td><td>We built with heavy help from Claude, and a share of the time and credits went on fixing bugs, some it had introduced itself and some that had been fixed once already. Nothing outside the conversation remembered what had been decided or broken, so each session could repeat an old mistake. This one is on us: we reviewed the code but did not keep the memory.</td><td>A notes file in the repository from Week 1, read at the start of every session: settled decisions and known traps, so the same fix is never paid for twice.</td></tr>
+</table>
+<table style="margin-top:6px">
+<tr><th style="width:22%">Surprise</th><th style="width:26%">What we expected</th><th style="width:26%">What happened</th><th style="width:26%">The assumption that was wrong</th></tr>
+<tr><td class="k">How long it took (Daniel)</td><td>Most of the work would be the analyzer itself.</td><td>The analyzer was done early; the county's records kept costing time for weeks, through to the Phase 7 memory crash.</td><td>Official, complete public data is consistent. It was complete (0.0% missing on our fields), but complete is not consistent.</td></tr>
+<tr><td class="k">Accurate is not the same as useful (Dhruv)</td><td>If every calculation was right, the ranking would point at good deals.</td><td>The resale estimate misses by 9.8% on a typical house, more than the margin on most flips: 6 of the 9 real listings we ranked project a loss.</td><td>Correct arithmetic makes a decision tool reliable. The inputs have to be accurate enough for the decision, not just computed correctly.</td></tr>
+</table>
+</div>
+
+<h2>Method note: what we could not verify</h2>
+<p style="margin:0">Today's resale values cannot be checked until those houses sell; the back-test is the only accuracy evidence, and it used only pairs whose price rose, so it may flatter flat or falling markets. Estimates ran 3.2% low on average, and lower on the biggest jumps (57% within 15% for gains of 50% or more). Renovation figures have never been compared with a finished project's cost. "Arm's-length" was approximated by price filters. Both outside readers were personal contacts. Demo-account figures use synthetic asking prices. Sources: BACKTEST_PROTOCOL.md, the Phase 7 test kit, the live app on 18 Nov 2026.</p>
+</body></html>
