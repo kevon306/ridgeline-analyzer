@@ -47,8 +47,9 @@ c[3].metric("Median projected ROI, ranked", "—" if s["median_roi"] is None els
 
 
 def bars(df: pd.DataFrame, cat: str, val: str, title: str, order=None):
+    st.markdown(f"**{title}**")
     """A single-series horizontal bar chart (no legend needed: the title names it), with a hover tooltip."""
-    return (alt.Chart(df, title=title).mark_bar(color=NAVY, cornerRadiusEnd=4, height=16)
+    return (alt.Chart(df).mark_bar(color=NAVY, cornerRadiusEnd=4, height=16)
             .encode(y=alt.Y(f"{cat}:N", sort=order or "-x", title=None, axis=alt.Axis(labelLimit=260)),
                     x=alt.X(f"{val}:Q", title="Candidates", axis=alt.Axis(tickMinStep=1, grid=True, gridOpacity=0.35)),
                     tooltip=[alt.Tooltip(f"{cat}:N", title=title.split(":")[0]), alt.Tooltip(f"{val}:Q", title="Candidates")])
@@ -68,7 +69,8 @@ with right:
 
 ranked = s["ranked"].dropna(subset=["roi_pct"])
 if len(ranked):
-    hist = (alt.Chart(ranked, title="Projected ROI spread, ranked candidates")
+    st.markdown("**Projected ROI spread, ranked candidates**")
+    hist = (alt.Chart(ranked)
             .mark_bar(color=NAVY, cornerRadiusTopLeft=4, cornerRadiusTopRight=4, binSpacing=2)
             .encode(x=alt.X("roi_pct:Q", bin=alt.Bin(step=5), title="Projected ROI (%)"),
                     y=alt.Y("count():Q", title="Candidates", axis=alt.Axis(tickMinStep=1, gridOpacity=0.35)),
